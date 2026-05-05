@@ -15,7 +15,7 @@ if (tg) {
 // ===============================
 // IDIOMA
 // ===============================
-function getLang() {
+function getTelegramLang() {
   let code = "pt";
 
   if (
@@ -32,7 +32,17 @@ function getLang() {
   return "pt";
 }
 
-const LANG = getLang();
+function getSavedLang() {
+  let saved = localStorage.getItem("protecspam_lang");
+
+  if (saved === "pt" || saved === "en" || saved === "es") {
+    return saved;
+  }
+
+  return getTelegramLang();
+}
+
+let LANG = getSavedLang();
 
 const I18N = {
   pt: {
@@ -206,6 +216,30 @@ function applyStaticTranslations() {
   setText("errorText", t("error_default"));
 }
 
+function updateLangButtons() {
+  document.querySelectorAll(".lang-switch button").forEach(function(btn) {
+    if (btn.dataset.lang === LANG) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+}
+
+function setLang(lang) {
+  if (!I18N[lang]) return;
+
+  LANG = lang;
+  localStorage.setItem("protecspam_lang", lang);
+
+  applyStaticTranslations();
+  updateLangButtons();
+
+  if (window.__LAST_SPAM_DATA__ && window.__LAST_PAYLOAD__) {
+    renderSpam(window.__LAST_SPAM_DATA__, window.__LAST_PAYLOAD__, true);
+  }
+}
+
 function renderError(text) {
   hide("loading");
   setText("errorText", text);
@@ -224,7 +258,10 @@ function renderMedia(data, payload) {
   let media = data.media || {};
   let type = getMediaType(media);
 
-  if (!type) return;
+  if (!type) {
+    hide("mediaCard");
+    return;
+  }
 
   let mediaBox = document.getElementById("mediaBox");
   if (!mediaBox) return;
@@ -261,7 +298,10 @@ function renderMedia(data, payload) {
   show("mediaCard");
 }
 
-function renderSpam(data, payload) {
+function renderSpam(data, payload, keepVisible) {
+  window.__LAST_SPAM_DATA__ = data;
+  window.__LAST_PAYLOAD__ = payload;
+
   let user = data.user || {};
 
   let userText = user.name || t("unknown");
@@ -282,8 +322,10 @@ function renderSpam(data, payload) {
 
   renderMedia(data, payload);
 
-  hide("loading");
-  show("content");
+  if (!keepVisible) {
+    hide("loading");
+    show("content");
+  }
 }
 
 async function loadSpam(payload) {
@@ -308,8 +350,15 @@ document.getElementById("closeBtn").addEventListener("click", () => {
   }
 });
 
+document.querySelectorAll(".lang-switch button").forEach(function(btn) {
+  btn.addEventListener("click", function() {
+    setLang(btn.dataset.lang);
+  });
+});
+
 (async function main() {
   applyStaticTranslations();
+  updateLangButtons();
 
   let payload = getStartParam();
 
@@ -320,7 +369,7 @@ document.getElementById("closeBtn").addEventListener("click", () => {
 
   try {
     let data = await loadSpam(payload);
-    renderSpam(data, payload);
+    renderSpam(data, payload, false);
   } catch (e) {
     renderError(t("error_not_found"));
   }
