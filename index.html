@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ProtecSpam</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <section class="card header">
+      <div class="icon">🛡️</div>
+      <div>
+        <h1>ProtecSpam</h1>
+        <p>Detalhes da mensagem removida</p>
+      </div>
+    </section>
+
+    <section id="loading" class="card loading">
+      <div class="spinner"></div>
+      <p>Carregando informações...</p>
+    </section>
+
+    <section id="content" class="hidden">
+      <section class="card alert">
+        <h2>🚨 Spam detectado</h2>
+        <p>Esta mensagem foi removida pelo sistema de proteção.</p>
+      </section>
+
+      <section class="card info">
+        <div class="row"><span>Payload</span><b id="payload">—</b></div>
+        <div class="row"><span>Grupo</span><b id="group">—</b></div>
+        <div class="row"><span>Mensagem</span><b id="messageId">—</b></div>
+        <div class="row"><span>Usuário</span><b id="user">—</b></div>
+        <div class="row"><span>Score</span><b id="score">—</b></div>
+      </section>
+
+      <section class="card">
+        <h3>📄 Conteúdo</h3>
+        <pre id="spamText">Conteúdo não carregado.</pre>
+      </section>
+
+      <section class="card actions">
+        <button id="closeBtn">Fechar</button>
+      </section>
+    </section>
+
+    <section id="error" class="card error hidden">
+      <h2>⚠️ Erro</h2>
+      <p id="errorText">Não foi possível carregar os dados.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
