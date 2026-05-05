@@ -7,7 +7,6 @@
   <title>ProtecSpam</title>
 
   <link rel="stylesheet" href="style.css" />
-
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 
@@ -37,11 +36,6 @@
 
       <section class="card info">
         <div class="row">
-          <span id="labelPayload">Payload</span>
-          <b id="payload">—</b>
-        </div>
-
-        <div class="row">
           <span id="labelGroup">Grupo</span>
           <b id="group">—</b>
         </div>
@@ -57,9 +51,29 @@
         </div>
 
         <div class="row">
+          <span id="labelUserId">ID</span>
+          <b id="userId">—</b>
+        </div>
+
+        <div class="row">
+          <span id="labelReason">Motivo</span>
+          <b id="reason">—</b>
+        </div>
+
+        <div class="row">
           <span id="labelScore">Score</span>
           <b id="score">—</b>
         </div>
+
+        <div class="row">
+          <span id="labelDate">Data</span>
+          <b id="date">—</b>
+        </div>
+      </section>
+
+      <section id="mediaCard" class="card hidden">
+        <h3 id="mediaTitle">🖼️ Mídia enviada</h3>
+        <div id="mediaBox" class="media-box"></div>
       </section>
 
       <section class="card">
