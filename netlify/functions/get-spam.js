@@ -1,5 +1,3 @@
-// netlify/functions/get-spam.js
-
 const { getStore } = require("@netlify/blobs");
 
 exports.handler = async function(event) {
@@ -52,7 +50,6 @@ exports.handler = async function(event) {
         data: data
       })
     };
-
   } catch (e) {
     return {
       statusCode: 500,
