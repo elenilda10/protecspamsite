@@ -5,9 +5,7 @@ exports.handler = async function(event) {
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ok: false,
           error: "Method not allowed"
@@ -20,9 +18,7 @@ exports.handler = async function(event) {
     if (!apiKey || apiKey !== process.env.SPAM_API_KEY) {
       return {
         statusCode: 401,
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ok: false,
           error: "Unauthorized"
@@ -39,9 +35,7 @@ exports.handler = async function(event) {
     if (!payload) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ok: false,
           error: "Missing payload"
@@ -53,7 +47,6 @@ exports.handler = async function(event) {
 
     const data = {
       payload: payload,
-
       group_title: body.group_title || "",
       chat_id: body.chat_id || "",
       message_id: body.message_id || "",
@@ -71,11 +64,8 @@ exports.handler = async function(event) {
       categories: Array.isArray(body.categories) ? body.categories : [],
 
       content: body.content || "Conteúdo não textual",
-
       media: body.media || {},
-
       profile_url: body.profile_url || "",
-
       created_at: Date.now()
     };
 
@@ -83,9 +73,7 @@ exports.handler = async function(event) {
 
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ok: true,
         payload: payload
@@ -94,9 +82,7 @@ exports.handler = async function(event) {
   } catch (e) {
     return {
       statusCode: 500,
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ok: false,
         error: e.message || "Internal error"
