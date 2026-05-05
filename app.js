@@ -6,9 +6,10 @@ if (tg) {
   tg.ready();
   tg.expand();
 
-  if (tg.themeParams && tg.themeParams.bg_color) {
-    document.documentElement.style.setProperty("--bg", tg.themeParams.bg_color);
-  }
+  document.documentElement.style.setProperty(
+    "--bg",
+    tg.themeParams.bg_color || "#0f172a"
+  );
 }
 
 function getStartParam() {
@@ -38,39 +39,68 @@ function setText(id, value) {
 }
 
 function parsePayload(payload) {
-  const parts = String(payload || "").split("_");
+  let parts = String(payload || "").split("_");
 
   return {
     type: parts[0] || "",
     chatId: parts[1] || "",
-    messageId: parts[2] || ""
+    messageId: parts[2] || "",
+    token: parts[3] || ""
   };
-}
-
-function renderDemo(payload) {
-  const parsed = parsePayload(payload);
-
-  setText("payload", payload);
-  setText("group", parsed.chatId ? "Chat " + parsed.chatId : "—");
-  setText("messageId", parsed.messageId || "—");
-  setText("user", "Disponível após conectar API");
-  setText("score", "Disponível após conectar API");
-
-  setText(
-    "spamText",
-    "Payload recebido com sucesso:\n\n" +
-    payload +
-    "\n\nAgora falta conectar este site com uma API para buscar o conteúdo salvo do spam."
-  );
-
-  hide("loading");
-  show("content");
 }
 
 function renderError(text) {
   hide("loading");
   setText("errorText", text);
   show("error");
+}
+
+function renderSpam(data, payload) {
+  let parsed = parsePayload(payload);
+  let user = data.user || {};
+
+  setText("payload", payload);
+  setText("group", data.group_title || ("Chat " + (data.chat_id || parsed.chatId)));
+  setText("message", data.message_id || parsed.messageId);
+
+  let userText = user.name || "—";
+
+  if (user.username) {
+    userText += " (@" + user.username + ")";
+  }
+
+  setText("user", userText);
+  setText("score", String(data.score || 0));
+
+  let content =
+    "🚨 Spam detectado\n\n" +
+    "👥 Grupo: " + (data.group_title || "—") + "\n" +
+    "👤 Usuário: " + userText + "\n" +
+    "🆔 ID: " + (user.id || "—") + "\n" +
+    "❌ Motivo: " + (data.reason || "—") + "\n" +
+    "📊 Score: " + (data.score || 0) + "\n" +
+    "🕒 Data: " + (data.date || "—") + "\n\n" +
+    "📄 Conteúdo:\n" +
+    (data.content || "Conteúdo não textual");
+
+  setText("spamText", content);
+
+  hide("loading");
+  show("content");
+}
+
+async function loadSpam(payload) {
+  const res = await fetch(
+    "/.netlify/functions/get-spam?payload=" + encodeURIComponent(payload)
+  );
+
+  const json = await res.json();
+
+  if (!json.ok || !json.data) {
+    throw new Error(json.error || "Conteúdo não encontrado.");
+  }
+
+  return json.data;
 }
 
 document.getElementById("closeBtn").addEventListener("click", () => {
@@ -81,13 +111,18 @@ document.getElementById("closeBtn").addEventListener("click", () => {
   }
 });
 
-(function main() {
-  const payload = getStartParam();
+(async function main() {
+  let payload = getStartParam();
 
   if (!payload) {
     renderError("Nenhum startapp payload foi encontrado.");
     return;
   }
 
-  renderDemo(payload);
+  try {
+    let data = await loadSpam(payload);
+    renderSpam(data, payload);
+  } catch (e) {
+    renderError("Conteúdo não encontrado ou ainda não salvo pela API.");
+  }
 })();
