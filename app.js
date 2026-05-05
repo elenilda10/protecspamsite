@@ -44,14 +44,22 @@ const I18N = {
     spam_detected: "🚨 Spam detectado",
     spam_desc: "Esta mensagem foi removida pelo sistema de proteção.",
 
-    payload: "Payload",
     group: "Grupo",
     message: "Mensagem",
     user: "Usuário",
+    user_id: "ID",
+    reason: "Motivo",
     score: "Score",
+    date: "Data",
+
+    media_title: "🖼️ Mídia enviada",
+    media_photo: "Imagem anexada",
+    media_video: "Vídeo anexado",
+    media_document: "Arquivo anexado",
+    open_file: "📎 Abrir arquivo",
 
     content_title: "📄 Conteúdo",
-    content_empty: "Conteúdo não carregado.",
+    content_empty: "Conteúdo não textual.",
 
     close: "Fechar",
 
@@ -59,15 +67,6 @@ const I18N = {
     error_default: "Não foi possível carregar os dados.",
     error_no_payload: "Nenhum startapp payload foi encontrado.",
     error_not_found: "Conteúdo não encontrado ou ainda não salvo pela API.",
-
-    spam_report_title: "🚨 Spam detectado",
-    group_label: "👥 Grupo",
-    user_label: "👤 Usuário",
-    id_label: "🆔 ID",
-    reason_label: "❌ Motivo",
-    score_label: "📊 Score",
-    date_label: "🕒 Data",
-    content_label: "📄 Conteúdo",
 
     unknown: "—"
   },
@@ -81,14 +80,22 @@ const I18N = {
     spam_detected: "🚨 Spam detected",
     spam_desc: "This message was removed by the protection system.",
 
-    payload: "Payload",
     group: "Group",
     message: "Message",
     user: "User",
+    user_id: "ID",
+    reason: "Reason",
     score: "Score",
+    date: "Date",
+
+    media_title: "🖼️ Sent media",
+    media_photo: "Attached image",
+    media_video: "Attached video",
+    media_document: "Attached file",
+    open_file: "📎 Open file",
 
     content_title: "📄 Content",
-    content_empty: "Content not loaded.",
+    content_empty: "Non-text content.",
 
     close: "Close",
 
@@ -96,15 +103,6 @@ const I18N = {
     error_default: "Could not load the data.",
     error_no_payload: "No startapp payload was found.",
     error_not_found: "Content not found or not saved by the API yet.",
-
-    spam_report_title: "🚨 Spam detected",
-    group_label: "👥 Group",
-    user_label: "👤 User",
-    id_label: "🆔 ID",
-    reason_label: "❌ Reason",
-    score_label: "📊 Score",
-    date_label: "🕒 Date",
-    content_label: "📄 Content",
 
     unknown: "—"
   },
@@ -118,14 +116,22 @@ const I18N = {
     spam_detected: "🚨 Spam detectado",
     spam_desc: "Este mensaje fue eliminado por el sistema de protección.",
 
-    payload: "Payload",
     group: "Grupo",
     message: "Mensaje",
     user: "Usuario",
+    user_id: "ID",
+    reason: "Motivo",
     score: "Puntuación",
+    date: "Fecha",
+
+    media_title: "🖼️ Multimedia enviada",
+    media_photo: "Imagen adjunta",
+    media_video: "Video adjunto",
+    media_document: "Archivo adjunto",
+    open_file: "📎 Abrir archivo",
 
     content_title: "📄 Contenido",
-    content_empty: "Contenido no cargado.",
+    content_empty: "Contenido no textual.",
 
     close: "Cerrar",
 
@@ -133,15 +139,6 @@ const I18N = {
     error_default: "No se pudieron cargar los datos.",
     error_no_payload: "No se encontró ningún payload startapp.",
     error_not_found: "Contenido no encontrado o aún no guardado por la API.",
-
-    spam_report_title: "🚨 Spam detectado",
-    group_label: "👥 Grupo",
-    user_label: "👤 Usuario",
-    id_label: "🆔 ID",
-    reason_label: "❌ Motivo",
-    score_label: "📊 Puntuación",
-    date_label: "🕒 Fecha",
-    content_label: "📄 Contenido",
 
     unknown: "—"
   }
@@ -169,11 +166,13 @@ function getStartParam() {
 }
 
 function show(id) {
-  document.getElementById(id).classList.remove("hidden");
+  let el = document.getElementById(id);
+  if (el) el.classList.remove("hidden");
 }
 
 function hide(id) {
-  document.getElementById(id).classList.add("hidden");
+  let el = document.getElementById(id);
+  if (el) el.classList.add("hidden");
 }
 
 function setText(id, value) {
@@ -181,20 +180,6 @@ function setText(id, value) {
   if (el) el.textContent = value || t("unknown");
 }
 
-function parsePayload(payload) {
-  let parts = String(payload || "").split("_");
-
-  return {
-    type: parts[0] || "",
-    chatId: parts[1] || "",
-    messageId: parts[2] || "",
-    token: parts[3] || ""
-  };
-}
-
-// ===============================
-// APLICA TRADUÇÃO NO HTML
-// ===============================
 function applyStaticTranslations() {
   setText("appTitle", t("app_title"));
   setText("appSubtitle", t("app_subtitle"));
@@ -203,12 +188,15 @@ function applyStaticTranslations() {
   setText("alertTitle", t("spam_detected"));
   setText("alertDesc", t("spam_desc"));
 
-  setText("labelPayload", t("payload"));
   setText("labelGroup", t("group"));
   setText("labelMessage", t("message"));
   setText("labelUser", t("user"));
+  setText("labelUserId", t("user_id"));
+  setText("labelReason", t("reason"));
   setText("labelScore", t("score"));
+  setText("labelDate", t("date"));
 
+  setText("mediaTitle", t("media_title"));
   setText("contentTitle", t("content_title"));
   setText("spamText", t("content_empty"));
 
@@ -224,13 +212,57 @@ function renderError(text) {
   show("error");
 }
 
-function renderSpam(data, payload) {
-  let parsed = parsePayload(payload);
-  let user = data.user || {};
+function getMediaType(media) {
+  if (!media) return null;
+  if (media.photo) return "photo";
+  if (media.video) return "video";
+  if (media.document) return "document";
+  return null;
+}
 
-  setText("payload", payload);
-  setText("group", data.group_title || ("Chat " + (data.chat_id || parsed.chatId)));
-  setText("message", data.message_id || parsed.messageId);
+function renderMedia(data, payload) {
+  let media = data.media || {};
+  let type = getMediaType(media);
+
+  if (!type) return;
+
+  let mediaBox = document.getElementById("mediaBox");
+  if (!mediaBox) return;
+
+  let mediaUrl =
+    "/.netlify/functions/media?payload=" +
+    encodeURIComponent(payload) +
+    "&type=" +
+    encodeURIComponent(type);
+
+  let html = "";
+
+  if (type === "photo") {
+    html =
+      '<p class="media-label">' + t("media_photo") + '</p>' +
+      '<img class="media-preview" src="' + mediaUrl + '" alt="spam media" />';
+  }
+
+  if (type === "video") {
+    html =
+      '<p class="media-label">' + t("media_video") + '</p>' +
+      '<video class="media-preview" controls src="' + mediaUrl + '"></video>';
+  }
+
+  if (type === "document") {
+    html =
+      '<p class="media-label">' + t("media_document") + '</p>' +
+      '<a class="file-btn" href="' + mediaUrl + '" target="_blank">' +
+      t("open_file") +
+      '</a>';
+  }
+
+  mediaBox.innerHTML = html;
+  show("mediaCard");
+}
+
+function renderSpam(data, payload) {
+  let user = data.user || {};
 
   let userText = user.name || t("unknown");
 
@@ -238,21 +270,17 @@ function renderSpam(data, payload) {
     userText += " (@" + user.username + ")";
   }
 
+  setText("group", data.group_title || t("unknown"));
+  setText("message", data.message_id || t("unknown"));
   setText("user", userText);
+  setText("userId", user.id || t("unknown"));
+  setText("reason", data.reason || t("unknown"));
   setText("score", String(data.score || 0));
+  setText("date", data.date || t("unknown"));
 
-  let content =
-    t("spam_report_title") + "\n\n" +
-    t("group_label") + ": " + (data.group_title || t("unknown")) + "\n" +
-    t("user_label") + ": " + userText + "\n" +
-    t("id_label") + ": " + (user.id || t("unknown")) + "\n" +
-    t("reason_label") + ": " + (data.reason || t("unknown")) + "\n" +
-    t("score_label") + ": " + (data.score || 0) + "\n" +
-    t("date_label") + ": " + (data.date || t("unknown")) + "\n\n" +
-    t("content_label") + ":\n" +
-    (data.content || t("content_empty"));
+  setText("spamText", data.content || t("content_empty"));
 
-  setText("spamText", content);
+  renderMedia(data, payload);
 
   hide("loading");
   show("content");
