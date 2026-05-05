@@ -117,3 +117,35 @@ pre {
 .error { border-color: rgba(239, 68, 68, 0.35); }
 .error h2 { color: var(--danger); }
 .hidden { display: none; }
+
+.media-box {
+  margin-top: 12px;
+}
+
+.media-label {
+  color: var(--muted);
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.media-preview {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #020617;
+}
+
+.file-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--blue);
+  color: #00111f;
+  text-decoration: none;
+  font-weight: 800;
+  margin-top: 10px;
+}
