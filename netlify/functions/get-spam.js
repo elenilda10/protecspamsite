@@ -14,9 +14,7 @@ exports.handler = async function(event) {
     if (!payload) {
       return {
         statusCode: 400,
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ok: false,
           error: "Missing payload"
@@ -30,9 +28,7 @@ exports.handler = async function(event) {
     if (!data) {
       return {
         statusCode: 404,
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ok: false,
           error: "Not found"
@@ -42,9 +38,7 @@ exports.handler = async function(event) {
 
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ok: true,
         data: data
@@ -53,9 +47,7 @@ exports.handler = async function(event) {
   } catch (e) {
     return {
       statusCode: 500,
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ok: false,
         error: e.message || "Internal error"
