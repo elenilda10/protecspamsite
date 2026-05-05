@@ -1,7 +1,9 @@
-const { getStore } = require("@netlify/blobs");
+const { connectLambda, getStore } = require("@netlify/blobs");
 
 exports.handler = async function(event) {
   try {
+    connectLambda(event);
+
     const payload = String(
       event.queryStringParameters &&
       event.queryStringParameters.payload
@@ -44,6 +46,7 @@ exports.handler = async function(event) {
         data: data
       })
     };
+
   } catch (e) {
     return {
       statusCode: 500,
