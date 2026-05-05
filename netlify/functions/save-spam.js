@@ -1,7 +1,9 @@
-const { getStore } = require("@netlify/blobs");
+const { connectLambda, getStore } = require("@netlify/blobs");
 
 exports.handler = async function(event) {
   try {
+    connectLambda(event);
+
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
@@ -79,6 +81,7 @@ exports.handler = async function(event) {
         payload: payload
       })
     };
+
   } catch (e) {
     return {
       statusCode: 500,
