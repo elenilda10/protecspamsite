@@ -29,7 +29,10 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const body = typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
+    const body =
+      typeof req.body === "object"
+        ? req.body
+        : JSON.parse(req.body || "{}");
 
     const payload = safePayload(body.payload);
 
@@ -72,7 +75,7 @@ module.exports = async function handler(req, res) {
       "spam-reports/" + payload + ".json",
       JSON.stringify(data),
       {
-        access: "private",
+        access: "public",
         contentType: "application/json",
         allowOverwrite: true
       }
