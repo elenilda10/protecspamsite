@@ -88,6 +88,52 @@ function getFileIdByType(media, type) {
   return null;
 }
 
+function guessContentType(filePath, fallbackType) {
+  const path = String(filePath || "").toLowerCase();
+
+  if (path.endsWith(".jpg") || path.endsWith(".jpeg")) return "image/jpeg";
+  if (path.endsWith(".png")) return "image/png";
+  if (path.endsWith(".webp")) return "image/webp";
+  if (path.endsWith(".gif")) return "image/gif";
+
+  if (path.endsWith(".mp4")) return "video/mp4";
+  if (path.endsWith(".mov")) return "video/quicktime";
+  if (path.endsWith(".webm")) return "video/webm";
+
+  if (path.endsWith(".mp3")) return "audio/mpeg";
+  if (path.endsWith(".ogg")) return "audio/ogg";
+  if (path.endsWith(".oga")) return "audio/ogg";
+  if (path.endsWith(".m4a")) return "audio/mp4";
+  if (path.endsWith(".wav")) return "audio/wav";
+
+  if (fallbackType === "photo") return "image/jpeg";
+  if (fallbackType === "sticker") return "image/webp";
+  if (fallbackType === "video" || fallbackType === "animation" || fallbackType === "video_note") return "video/mp4";
+  if (fallbackType === "audio") return "audio/mpeg";
+  if (fallbackType === "voice") return "audio/ogg";
+
+  return "application/octet-stream";
+}
+
+function guessFileName(filePath, type) {
+  const path = String(filePath || "");
+  const last = path.split("/").pop();
+
+  if (last && last.includes(".")) {
+    return last;
+  }
+
+  if (type === "photo") return "media.jpg";
+  if (type === "sticker") return "sticker.webp";
+  if (type === "video") return "video.mp4";
+  if (type === "animation") return "animation.mp4";
+  if (type === "video_note") return "video_note.mp4";
+  if (type === "audio") return "audio.mp3";
+  if (type === "voice") return "voice.ogg";
+
+  return "media.bin";
+}
+
 module.exports = async function handler(req, res) {
   try {
     if (req.method !== "GET") {
@@ -170,11 +216,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    const filePath = tgJson.result.file_path;
+
     const fileUrl =
       "https://api.telegram.org/file/bot" +
       botToken +
       "/" +
-      tgJson.result.file_path;
+      filePath;
 
     const fileRes = await fetch(fileUrl);
 
@@ -187,15 +235,16 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const contentType =
-      fileRes.headers.get("content-type") || "application/octet-stream";
-
     const arrayBuffer = await fileRes.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
+
+    const contentType = guessContentType(filePath, type);
+    const fileName = guessFileName(filePath, type);
 
     res.statusCode = 200;
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", String(buffer.length));
+    res.setHeader("Content-Disposition", 'inline; filename="' + fileName + '"');
     res.setHeader("Cache-Control", "private, max-age=300");
     res.end(buffer);
 
