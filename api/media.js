@@ -1,5 +1,4 @@
-
-const { head, get } = require("@vercel/blob");
+const { get } = require("@vercel/blob");
 
 function safePayload(value) {
   return String(value || "")
@@ -20,11 +19,7 @@ function safeType(value) {
 async function readSpam(payload) {
   const pathname = "spam-reports/" + payload + ".json";
 
-  const blob = await head(pathname, {
-    access: "private"
-  });
-
-  const file = await get(blob.url, {
+  const file = await get(pathname, {
     access: "private"
   });
 
@@ -55,7 +50,7 @@ module.exports = async function handler(req, res) {
       return;
     }
 
-    let data = null;
+    let data;
 
     try {
       data = await readSpam(payload);
