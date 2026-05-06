@@ -1,4 +1,5 @@
-const { head } = require("@vercel/blob");
+
+const { head, get } = require("@vercel/blob");
 
 function safePayload(value) {
   return String(value || "")
@@ -19,15 +20,15 @@ function safeType(value) {
 async function readSpam(payload) {
   const pathname = "spam-reports/" + payload + ".json";
 
-  const blob = await head(pathname);
+  const blob = await head(pathname, {
+    access: "private"
+  });
 
-  const fileRes = await fetch(blob.url);
+  const file = await get(blob.url, {
+    access: "private"
+  });
 
-  if (!fileRes.ok) {
-    throw new Error("Could not fetch blob");
-  }
-
-  const text = await fileRes.text();
+  const text = await file.text();
 
   return JSON.parse(text);
 }
