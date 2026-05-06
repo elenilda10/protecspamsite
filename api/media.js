@@ -1,5 +1,4 @@
 const { get } = require("@vercel/blob");
-const { Readable } = require("node:stream");
 
 function sendJson(res, status, data) {
   res.statusCode = status;
@@ -33,7 +32,6 @@ async function streamToText(stream) {
     throw new Error("Stream not found");
   }
 
-  // Web ReadableStream
   if (typeof stream.getReader === "function") {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
@@ -49,8 +47,8 @@ async function streamToText(stream) {
     return result;
   }
 
-  // Node Readable
   let result = "";
+
   for await (const chunk of stream) {
     result += Buffer.isBuffer(chunk)
       ? chunk.toString("utf8")
@@ -145,13 +143,13 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    const tgApiUrl =
+    const tgRes = await fetch(
       "https://api.telegram.org/bot" +
-      botToken +
-      "/getFile?file_id=" +
-      encodeURIComponent(fileId);
+        botToken +
+        "/getFile?file_id=" +
+        encodeURIComponent(fileId)
+    );
 
-    const tgRes = await fetch(tgApiUrl);
     const tgJson = await tgRes.json();
 
     if (debug) {
@@ -192,17 +190,14 @@ module.exports = async function handler(req, res) {
     const contentType =
       fileRes.headers.get("content-type") || "application/octet-stream";
 
+    const arrayBuffer = await fileRes.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     res.statusCode = 200;
     res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Length", String(buffer.length));
     res.setHeader("Cache-Control", "private, max-age=300");
-
-    if (fileRes.body && typeof Readable.fromWeb === "function") {
-      Readable.fromWeb(fileRes.body).pipe(res);
-      return;
-    }
-
-    const arrayBuffer = await fileRes.arrayBuffer();
-    res.end(Buffer.from(arrayBuffer));
+    res.end(buffer);
 
   } catch (e) {
     return sendJson(res, 500, {
