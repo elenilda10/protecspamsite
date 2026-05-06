@@ -16,6 +16,24 @@ function safeType(value) {
   return "";
 }
 
+async function streamToText(stream) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let result = "";
+
+  while (true) {
+    const chunk = await reader.read();
+
+    if (chunk.done) break;
+
+    result += decoder.decode(chunk.value, { stream: true });
+  }
+
+  result += decoder.decode();
+
+  return result;
+}
+
 async function readSpam(payload) {
   const pathname = "spam-reports/" + payload + ".json";
 
@@ -23,7 +41,11 @@ async function readSpam(payload) {
     access: "private"
   });
 
-  const text = await file.text();
+  if (!file || !file.stream) {
+    throw new Error("Blob stream not found");
+  }
+
+  const text = await streamToText(file.stream);
 
   return JSON.parse(text);
 }
@@ -55,7 +77,7 @@ module.exports = async function handler(req, res) {
     try {
       data = await readSpam(payload);
     } catch (e) {
-      res.status(404).end("Report not found");
+      res.status(404).end("Report not found: " + (e.message || String(e)));
       return;
     }
 
