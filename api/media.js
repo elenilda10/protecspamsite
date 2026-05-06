@@ -146,3 +146,40 @@ module.exports = async function handler(req, res) {
     res.status(500).end(e.message || "Internal error");
   }
 };
+
+.audio-preview {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.media-box {
+  margin-top: 12px;
+}
+
+.media-label {
+  color: var(--muted);
+  margin-bottom: 10px;
+  font-size: 15px;
+}
+
+.media-preview {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: #020617;
+}
+
+.file-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--blue);
+  color: #00111f;
+  text-decoration: none;
+  font-weight: 800;
+  margin-top: 10px;
+}
