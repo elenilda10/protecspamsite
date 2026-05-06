@@ -12,6 +12,8 @@ function safeType(value) {
   if (type === "photo") return "photo";
   if (type === "video") return "video";
   if (type === "document") return "document";
+  if (type === "audio") return "audio";
+  if (type === "voice") return "voice";
 
   return "";
 }
@@ -88,6 +90,8 @@ module.exports = async function handler(req, res) {
     if (type === "photo") fileId = media.photo;
     if (type === "video") fileId = media.video;
     if (type === "document") fileId = media.document;
+    if (type === "audio") fileId = media.audio;
+    if (type === "voice") fileId = media.voice;
 
     if (!fileId) {
       res.status(404).end("File ID not found");
