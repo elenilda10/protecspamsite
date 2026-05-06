@@ -29,6 +29,7 @@ function getTelegramLang() {
 
   if (code.startsWith("en")) return "en";
   if (code.startsWith("es")) return "es";
+
   return "pt";
 }
 
@@ -246,11 +247,16 @@ function renderError(text) {
   show("error");
 }
 
+// ===============================
+// MÍDIA
+// ===============================
 function getMediaType(media) {
   if (!media) return null;
+
   if (media.photo) return "photo";
   if (media.video) return "video";
   if (media.document) return "document";
+
   return null;
 }
 
@@ -267,7 +273,7 @@ function renderMedia(data, payload) {
   if (!mediaBox) return;
 
   let mediaUrl =
-    "/.netlify/functions/media?payload=" +
+    "/api/media?payload=" +
     encodeURIComponent(payload) +
     "&type=" +
     encodeURIComponent(type);
@@ -298,6 +304,9 @@ function renderMedia(data, payload) {
   show("mediaCard");
 }
 
+// ===============================
+// RENDER RELATÓRIO
+// ===============================
 function renderSpam(data, payload, keepVisible) {
   window.__LAST_SPAM_DATA__ = data;
   window.__LAST_PAYLOAD__ = payload;
@@ -328,9 +337,12 @@ function renderSpam(data, payload, keepVisible) {
   }
 }
 
+// ===============================
+// API VERCEL
+// ===============================
 async function loadSpam(payload) {
   const res = await fetch(
-    "/.netlify/functions/get-spam?payload=" + encodeURIComponent(payload)
+    "/api/get-spam?payload=" + encodeURIComponent(payload)
   );
 
   const json = await res.json();
@@ -342,7 +354,10 @@ async function loadSpam(payload) {
   return json.data;
 }
 
-document.getElementById("closeBtn").addEventListener("click", () => {
+// ===============================
+// EVENTOS
+// ===============================
+document.getElementById("closeBtn").addEventListener("click", function() {
   if (tg) {
     tg.close();
   } else {
@@ -356,6 +371,9 @@ document.querySelectorAll(".lang-switch button").forEach(function(btn) {
   });
 });
 
+// ===============================
+// START
+// ===============================
 (async function main() {
   applyStaticTranslations();
   updateLangButtons();
