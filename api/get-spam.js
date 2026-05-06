@@ -1,4 +1,4 @@
-const { head, get } = require("@vercel/blob");
+const { get } = require("@vercel/blob");
 
 function json(res, status, data) {
   res.status(status).setHeader("Content-Type", "application/json");
@@ -14,11 +14,7 @@ function safePayload(value) {
 async function readSpam(payload) {
   const pathname = "spam-reports/" + payload + ".json";
 
-  const blob = await head(pathname, {
-    access: "private"
-  });
-
-  const file = await get(blob.url, {
+  const file = await get(pathname, {
     access: "private"
   });
 
@@ -45,14 +41,15 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    let data = null;
+    let data;
 
     try {
       data = await readSpam(payload);
     } catch (e) {
       return json(res, 404, {
         ok: false,
-        error: "Not found"
+        error: "Not found",
+        detail: e.message || String(e)
       });
     }
 
