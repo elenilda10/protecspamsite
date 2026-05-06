@@ -67,6 +67,11 @@ const I18N = {
     media_photo: "Imagem anexada",
     media_video: "Vídeo anexado",
     media_document: "Arquivo anexado",
+    media_audio: "Áudio anexado",
+    media_voice: "Mensagem de voz anexada",
+    media_animation: "GIF/animação anexada",
+    media_video_note: "Vídeo circular anexado",
+    media_sticker: "Sticker anexado",
     open_file: "📎 Abrir arquivo",
 
     content_title: "📄 Conteúdo",
@@ -103,6 +108,11 @@ const I18N = {
     media_photo: "Attached image",
     media_video: "Attached video",
     media_document: "Attached file",
+    media_audio: "Attached audio",
+    media_voice: "Attached voice message",
+    media_animation: "Attached GIF/animation",
+    media_video_note: "Attached video note",
+    media_sticker: "Attached sticker",
     open_file: "📎 Open file",
 
     content_title: "📄 Content",
@@ -139,6 +149,11 @@ const I18N = {
     media_photo: "Imagen adjunta",
     media_video: "Video adjunto",
     media_document: "Archivo adjunto",
+    media_audio: "Audio adjunto",
+    media_voice: "Mensaje de voz adjunto",
+    media_animation: "GIF/animación adjunta",
+    media_video_note: "Video circular adjunto",
+    media_sticker: "Sticker adjunto",
     open_file: "📎 Abrir archivo",
 
     content_title: "📄 Contenido",
@@ -255,6 +270,11 @@ function getMediaType(media) {
 
   if (media.photo) return "photo";
   if (media.video) return "video";
+  if (media.audio) return "audio";
+  if (media.voice) return "voice";
+  if (media.animation) return "animation";
+  if (media.video_note) return "video_note";
+  if (media.sticker) return "sticker";
   if (media.document) return "document";
 
   return null;
@@ -290,6 +310,36 @@ function renderMedia(data, payload) {
     html =
       '<p class="media-label">' + t("media_video") + '</p>' +
       '<video class="media-preview" controls src="' + mediaUrl + '"></video>';
+  }
+
+  if (type === "audio") {
+    html =
+      '<p class="media-label">' + t("media_audio") + '</p>' +
+      '<audio class="audio-preview" controls src="' + mediaUrl + '"></audio>';
+  }
+
+  if (type === "voice") {
+    html =
+      '<p class="media-label">' + t("media_voice") + '</p>' +
+      '<audio class="audio-preview" controls src="' + mediaUrl + '"></audio>';
+  }
+
+  if (type === "animation") {
+    html =
+      '<p class="media-label">' + t("media_animation") + '</p>' +
+      '<video class="media-preview" controls autoplay muted loop src="' + mediaUrl + '"></video>';
+  }
+
+  if (type === "video_note") {
+    html =
+      '<p class="media-label">' + t("media_video_note") + '</p>' +
+      '<video class="media-preview" controls src="' + mediaUrl + '"></video>';
+  }
+
+  if (type === "sticker") {
+    html =
+      '<p class="media-label">' + t("media_sticker") + '</p>' +
+      '<img class="media-preview" src="' + mediaUrl + '" alt="sticker" />';
   }
 
   if (type === "document") {
