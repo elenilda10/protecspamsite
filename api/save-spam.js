@@ -43,8 +43,11 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    const pathname = "spam-reports/" + payload + ".json";
+
     const data = {
       payload: payload,
+      pathname: pathname,
 
       group_title: body.group_title || "",
       chat_id: body.chat_id || "",
@@ -63,27 +66,31 @@ module.exports = async function handler(req, res) {
       categories: Array.isArray(body.categories) ? body.categories : [],
 
       content: body.content || "Conteúdo não textual",
-
       media: body.media || {},
-
       profile_url: body.profile_url || "",
 
       created_at: Date.now()
     };
 
-    await put(
-      "spam-reports/" + payload + ".json",
+    const blob = await put(
+      pathname,
       JSON.stringify(data),
       {
         access: "private",
         contentType: "application/json",
-        allowOverwrite: true
+        allowOverwrite: true,
+        addRandomSuffix: false
       }
     );
 
     return json(res, 200, {
       ok: true,
-      payload: payload
+      payload: payload,
+      pathname: pathname,
+      blob: {
+        url: blob.url,
+        pathname: blob.pathname
+      }
     });
 
   } catch (e) {
