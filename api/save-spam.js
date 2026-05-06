@@ -75,7 +75,7 @@ module.exports = async function handler(req, res) {
       "spam-reports/" + payload + ".json",
       JSON.stringify(data),
       {
-        access: "public",
+        access: "private",
         contentType: "application/json",
         allowOverwrite: true
       }
