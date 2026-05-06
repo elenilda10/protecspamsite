@@ -1,4 +1,11 @@
 const { get } = require("@vercel/blob");
+const { Readable } = require("node:stream");
+
+function sendJson(res, status, data) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(data));
+}
 
 function safePayload(value) {
   return String(value || "")
@@ -22,19 +29,33 @@ function safeType(value) {
 }
 
 async function streamToText(stream) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let result = "";
-
-  while (true) {
-    const chunk = await reader.read();
-
-    if (chunk.done) break;
-
-    result += decoder.decode(chunk.value, { stream: true });
+  if (!stream) {
+    throw new Error("Stream not found");
   }
 
-  result += decoder.decode();
+  // Web ReadableStream
+  if (typeof stream.getReader === "function") {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let result = "";
+
+    while (true) {
+      const chunk = await reader.read();
+      if (chunk.done) break;
+      result += decoder.decode(chunk.value, { stream: true });
+    }
+
+    result += decoder.decode();
+    return result;
+  }
+
+  // Node Readable
+  let result = "";
+  for await (const chunk of stream) {
+    result += Buffer.isBuffer(chunk)
+      ? chunk.toString("utf8")
+      : Buffer.from(chunk).toString("utf8");
+  }
 
   return result;
 }
@@ -51,30 +72,53 @@ async function readSpam(payload) {
   }
 
   const text = await streamToText(file.stream);
-
   return JSON.parse(text);
+}
+
+function getFileIdByType(media, type) {
+  if (!media) return null;
+
+  if (type === "photo") return media.photo;
+  if (type === "video") return media.video;
+  if (type === "document") return media.document;
+  if (type === "audio") return media.audio;
+  if (type === "voice") return media.voice;
+  if (type === "animation") return media.animation;
+  if (type === "video_note") return media.video_note;
+  if (type === "sticker") return media.sticker;
+
+  return null;
 }
 
 module.exports = async function handler(req, res) {
   try {
     if (req.method !== "GET") {
-      res.status(405).end("Method not allowed");
-      return;
+      return sendJson(res, 405, {
+        ok: false,
+        error: "Method not allowed"
+      });
     }
 
     const payload = safePayload(req.query.payload);
     const type = safeType(req.query.type);
+    const debug = String(req.query.debug || "") === "1";
 
     if (!payload || !type) {
-      res.status(400).end("Missing payload or type");
-      return;
+      return sendJson(res, 400, {
+        ok: false,
+        error: "Missing payload or type",
+        payload,
+        type
+      });
     }
 
     const botToken = process.env.BOT_TOKEN;
 
     if (!botToken) {
-      res.status(500).end("BOT_TOKEN not configured");
-      return;
+      return sendJson(res, 500, {
+        ok: false,
+        error: "BOT_TOKEN not configured"
+      });
     }
 
     let data;
@@ -82,40 +126,50 @@ module.exports = async function handler(req, res) {
     try {
       data = await readSpam(payload);
     } catch (e) {
-      res.status(404).end("Report not found: " + (e.message || String(e)));
-      return;
+      return sendJson(res, 404, {
+        ok: false,
+        error: "Report not found",
+        detail: e.message || String(e)
+      });
     }
 
     const media = data.media || {};
-
-    let fileId = null;
-
-    if (type === "photo") fileId = media.photo;
-    if (type === "video") fileId = media.video;
-    if (type === "document") fileId = media.document;
-    if (type === "audio") fileId = media.audio;
-    if (type === "voice") fileId = media.voice;
-    if (type === "animation") fileId = media.animation;
-    if (type === "video_note") fileId = media.video_note;
-    if (type === "sticker") fileId = media.sticker;
+    const fileId = getFileIdByType(media, type);
 
     if (!fileId) {
-      res.status(404).end("File ID not found");
-      return;
+      return sendJson(res, 404, {
+        ok: false,
+        error: "File ID not found",
+        type,
+        media
+      });
     }
 
-    const tgRes = await fetch(
+    const tgApiUrl =
       "https://api.telegram.org/bot" +
-        botToken +
-        "/getFile?file_id=" +
-        encodeURIComponent(fileId)
-    );
+      botToken +
+      "/getFile?file_id=" +
+      encodeURIComponent(fileId);
 
+    const tgRes = await fetch(tgApiUrl);
     const tgJson = await tgRes.json();
 
+    if (debug) {
+      return sendJson(res, 200, {
+        ok: true,
+        payload,
+        type,
+        file_id: fileId,
+        telegram_getFile: tgJson
+      });
+    }
+
     if (!tgJson.ok || !tgJson.result || !tgJson.result.file_path) {
-      res.status(500).end("Could not get Telegram file");
-      return;
+      return sendJson(res, 500, {
+        ok: false,
+        error: "Could not get Telegram file",
+        telegram: tgJson
+      });
     }
 
     const fileUrl =
@@ -127,59 +181,33 @@ module.exports = async function handler(req, res) {
     const fileRes = await fetch(fileUrl);
 
     if (!fileRes.ok) {
-      res.status(500).end("Could not download Telegram file");
-      return;
+      return sendJson(res, 500, {
+        ok: false,
+        error: "Could not download Telegram file",
+        status: fileRes.status,
+        statusText: fileRes.statusText
+      });
     }
 
     const contentType =
       fileRes.headers.get("content-type") || "application/octet-stream";
 
-    const arrayBuffer = await fileRes.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    res.status(200);
+    res.statusCode = 200;
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "private, max-age=300");
-    res.end(buffer);
+
+    if (fileRes.body && typeof Readable.fromWeb === "function") {
+      Readable.fromWeb(fileRes.body).pipe(res);
+      return;
+    }
+
+    const arrayBuffer = await fileRes.arrayBuffer();
+    res.end(Buffer.from(arrayBuffer));
 
   } catch (e) {
-    res.status(500).end(e.message || "Internal error");
+    return sendJson(res, 500, {
+      ok: false,
+      error: e.message || "Internal error"
+    });
   }
 };
-
-.audio-preview {
-  width: 100%;
-  margin-top: 8px;
-}
-
-.media-box {
-  margin-top: 12px;
-}
-
-.media-label {
-  color: var(--muted);
-  margin-bottom: 10px;
-  font-size: 15px;
-}
-
-.media-preview {
-  width: 100%;
-  max-height: 420px;
-  object-fit: contain;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: #020617;
-}
-
-.file-btn {
-  display: block;
-  width: 100%;
-  text-align: center;
-  padding: 14px;
-  border-radius: 14px;
-  background: var(--blue);
-  color: #00111f;
-  text-decoration: none;
-  font-weight: 800;
-  margin-top: 10px;
-}
