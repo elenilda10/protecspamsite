@@ -14,6 +14,9 @@ function safeType(value) {
   if (type === "document") return "document";
   if (type === "audio") return "audio";
   if (type === "voice") return "voice";
+  if (type === "animation") return "animation";
+  if (type === "video_note") return "video_note";
+  if (type === "sticker") return "sticker";
 
   return "";
 }
@@ -92,6 +95,9 @@ module.exports = async function handler(req, res) {
     if (type === "document") fileId = media.document;
     if (type === "audio") fileId = media.audio;
     if (type === "voice") fileId = media.voice;
+    if (type === "animation") fileId = media.animation;
+    if (type === "video_note") fileId = media.video_note;
+    if (type === "sticker") fileId = media.sticker;
 
     if (!fileId) {
       res.status(404).end("File ID not found");
