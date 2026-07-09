@@ -1,4 +1,4 @@
-const { get } = require("@vercel/blob");
+const { list } = require("@vercel/blob");
 
 function json(res, status, data) {
   res.status(status).setHeader("Content-Type", "application/json");
@@ -11,38 +11,28 @@ function safePayload(value) {
     .slice(0, 120);
 }
 
-async function streamToText(stream) {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let result = "";
-
-  while (true) {
-    const chunk = await reader.read();
-
-    if (chunk.done) break;
-
-    result += decoder.decode(chunk.value, { stream: true });
-  }
-
-  result += decoder.decode();
-
-  return result;
-}
-
 async function readSpam(payload) {
   const pathname = "spam-reports/" + payload + ".json";
 
-  const file = await get(pathname, {
-    access: "private"
+  // 1. Procura o ficheiro exato no Vercel Blob
+  const { blobs } = await list({
+    prefix: pathname,
+    limit: 1
   });
 
-  if (!file || !file.stream) {
-    throw new Error("Blob stream not found");
+  if (!blobs || blobs.length === 0) {
+    throw new Error("Blob not found");
   }
 
-  const text = await streamToText(file.stream);
+  // 2. Usa a URL de download seguro gerada pela própria Vercel
+  const response = await fetch(blobs[0].downloadUrl);
 
-  return JSON.parse(text);
+  if (!response.ok) {
+    throw new Error("Failed to fetch blob contents");
+  }
+
+  // 3. Lê e converte o conteúdo JSON automaticamente
+  return await response.json();
 }
 
 module.exports = async function handler(req, res) {
