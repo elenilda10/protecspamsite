@@ -1,4 +1,4 @@
-const { list } = require("@vercel/blob");
+const { put } = require("@vercel/blob");
 
 function json(res, status, data) {
   res.status(status).setHeader("Content-Type", "application/json");
@@ -13,61 +13,73 @@ function safePayload(value) {
 
 module.exports = async function handler(req, res) {
   try {
-    if (req.method !== "GET") {
+    if (req.method !== "POST") {
       return json(res, 405, { ok: false, error: "Method not allowed" });
     }
 
-    const payload = safePayload(req.query.payload);
+    const apiKey = req.headers["x-api-key"];
+    if (!apiKey || apiKey !== process.env.SPAM_API_KEY) {
+      return json(res, 401, { ok: false, error: "Unauthorized: API Key incorreta ou ausente." });
+    }
+
+    const body = typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
+    const payload = safePayload(body.payload);
 
     if (!payload) {
-      return json(res, 400, { ok: false, error: "Missing payload parameter" });
+      return json(res, 400, { ok: false, error: "Missing payload" });
     }
 
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    // Mantemos a estrutura organizada por pastas virtuais
+    const pathname = "spam-reports/" + payload + ".json";
 
-    // 🛡️ CORREÇÃO CIRÚRGICA: Listamos sem o prefixo da pasta.
-    // Como os arquivos estão soltos na raiz com o nome completo, buscamos direto pela string do payload.
-    const { blobs } = await list({ 
-      prefix: payload, 
-      limit: 1,
-      token: token 
-    });
+    const data = {
+      payload: payload,
+      pathname: pathname,
+      group_title: body.group_title || "",
+      chat_id: body.chat_id || "",
+      message_id: body.message_id || "",
+      date: body.date || "",
+      user: {
+        id: body.user_id || "",
+        name: body.user_name || "",
+        username: body.username || "",
+        is_bot: body.is_bot === true
+      },
+      reason: body.reason || "",
+      score: body.score || 0,
+      categories: Array.isArray(body.categories) ? body.categories : [],
+      content: body.content || "Conteúdo não textual",
+      media: body.media || {},
+      profile_url: body.profile_url || "",
+      created_at: Date.now()
+    };
 
-    // CASO NÃO ENCONTRE NA RAIZ: Tentativa de Fallback buscando com o caminho completo textualmente
-    let targetBlob = blobs && blobs[0] ? blobs[0] : null;
-    
-    if (!targetBlob) {
-      const fallbackSearch = await list({
-        prefix: "spam-reports/" + payload,
-        limit: 1,
-        token: token
-      });
-      if (fallbackSearch.blobs && fallbackSearch.blobs[0]) {
-        targetBlob = fallbackSearch.blobs[0];
+    // 🛡️ CORREÇÃO CIRÚRGICA: Mudado para "private" para aceitar o seu bucket privado
+    // addRandomSuffix desativado para garantir que o nome seja previsível para o GET
+    const blob = await put(
+      pathname,
+      JSON.stringify(data),
+      {
+        access: "private", 
+        contentType: "application/json",
+        allowOverwrite: true,
+        addRandomSuffix: false,
+        token: process.env.BLOB_READ_WRITE_TOKEN
       }
-    }
-
-    // Se ambas as buscas falharem, o arquivo realmente não existe
-    if (!targetBlob) {
-      return json(res, 404, { ok: false, error: "Relatório não encontrado no armazenamento" });
-    }
-
-    // Faz o download usando a URL gerada pelo Vercel Blob (resolve buckets privados automaticamente)
-    const response = await fetch(targetBlob.url);
-    
-    if (!response.ok) {
-      return json(res, 500, { ok: false, error: "Falha ao ler o conteúdo do arquivo no storage" });
-    }
-
-    const data = await response.json();
+    );
 
     return json(res, 200, {
       ok: true,
-      data: data
+      payload: payload,
+      pathname: blob.pathname,
+      blob: {
+        url: blob.url,
+        pathname: blob.pathname
+      }
     });
 
   } catch (e) {
-    console.error("Erro no GET handler:", e);
-    return json(res, 500, { ok: false, error: "Erro interno no servidor: " + (e.message || "Internal error") });
+    console.error("Erro na gravação do POST:", e);
+    return json(res, 500, { ok: false, error: "Erro no Vercel Blob: " + (e.message || "Internal error") });
   }
 };
