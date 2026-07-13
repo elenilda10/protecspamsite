@@ -1,10 +1,11 @@
 const { list } = require("@vercel/blob");
 
-// Adicionamos os cabeçalhos de CORS (Access-Control) aqui!
+// Adicionamos CORS e bloqueio de cache para o WebView do Telegram!
 function json(res, status, data) {
   res.setHeader("Content-Type", "application/json");
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.status(status).end(JSON.stringify(data));
 }
 
@@ -14,12 +15,25 @@ function safePayload(value) {
 
 async function readSpam(payload) {
   const pathname = "spam-reports/" + payload + ".json";
+  
+  // Busca o arquivo no Vercel Blob
   const { blobs } = await list({ prefix: pathname, limit: 1 });
 
-  if (!blobs || blobs.length === 0) throw new Error("Blob not found");
+  if (!blobs || blobs.length === 0) {
+    throw new Error("Relatório não encontrado no storage (Blobs = 0).");
+  }
 
-  const response = await fetch(blobs[0].downloadUrl);
-  if (!response.ok) throw new Error("Failed to fetch blob contents");
+  // 🛡️ CORREÇÃO: Usa .url como prioridade, com fallback para .downloadUrl
+  const fileUrl = blobs[0].url || blobs[0].downloadUrl;
+  
+  if (!fileUrl) {
+    throw new Error("URL de download não gerada pelo Vercel Blob.");
+  }
+
+  const response = await fetch(fileUrl);
+  if (!response.ok) {
+    throw new Error("Falha ao ler o conteúdo do arquivo HTTP: " + response.status);
+  }
 
   return await response.json();
 }
@@ -45,7 +59,12 @@ module.exports = async function handler(req, res) {
     try {
       data = await readSpam(payload);
     } catch (e) {
-      return json(res, 404, { ok: false, error: "Not found", detail: e.message });
+      // Devolve o detalhe exato do erro para facilitar o debug na tela do Mini App
+      return json(res, 404, { 
+        ok: false, 
+        error: "Not found", 
+        detail: e.message 
+      });
     }
 
     return json(res, 200, { ok: true, data: data });
@@ -54,4 +73,3 @@ module.exports = async function handler(req, res) {
     return json(res, 500, { ok: false, error: e.message || "Internal error" });
   }
 };
-
