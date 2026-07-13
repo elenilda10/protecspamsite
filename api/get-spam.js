@@ -18,7 +18,6 @@ module.exports = async function handler(req, res) {
     }
 
     const payload = safePayload(req.query.payload);
-    console.log("Buscando relatório para o payload:", payload);
 
     if (!payload) {
       return json(res, 400, { ok: false, error: "Missing payload parameter" });
@@ -26,27 +25,35 @@ module.exports = async function handler(req, res) {
 
     const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-    // CORREÇÃO: Buscamos apenas pelo ID do payload bruto, sem prefixo de pasta fixo.
-    // Isso evita problemas caso o POST tenha salvado como "/spam-reports" ou na raiz.
+    // 🛡️ CORREÇÃO CIRÚRGICA: Listamos sem o prefixo da pasta.
+    // Como os arquivos estão soltos na raiz com o nome completo, buscamos direto pela string do payload.
     const { blobs } = await list({ 
       prefix: payload, 
       limit: 1,
       token: token 
     });
 
-    // Se a busca ampla falhar, tentamos listar os últimos 5 arquivos salvos para debugar no console
-    if (!blobs || blobs.length === 0) {
-      const debugList = await list({ limit: 5, token: token });
-      console.log("--- LOG DE DIAGNÓSTICO ---");
-      console.log("O arquivo procurado não foi achado. Últimos arquivos no bucket:", 
-        debugList.blobs.map(b => b.pathname)
-      );
-      
+    // CASO NÃO ENCONTRE NA RAIZ: Tentativa de Fallback buscando com o caminho completo textualmente
+    let targetBlob = blobs && blobs[0] ? blobs[0] : null;
+    
+    if (!targetBlob) {
+      const fallbackSearch = await list({
+        prefix: "spam-reports/" + payload,
+        limit: 1,
+        token: token
+      });
+      if (fallbackSearch.blobs && fallbackSearch.blobs[0]) {
+        targetBlob = fallbackSearch.blobs[0];
+      }
+    }
+
+    // Se ambas as buscas falharem, o arquivo realmente não existe
+    if (!targetBlob) {
       return json(res, 404, { ok: false, error: "Relatório não encontrado no armazenamento" });
     }
 
-    const blobUrl = blobs[0].url;
-    const response = await fetch(blobUrl);
+    // Faz o download usando a URL gerada pelo Vercel Blob (resolve buckets privados automaticamente)
+    const response = await fetch(targetBlob.url);
     
     if (!response.ok) {
       return json(res, 500, { ok: false, error: "Falha ao ler o conteúdo do arquivo no storage" });
