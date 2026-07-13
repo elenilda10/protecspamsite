@@ -178,17 +178,15 @@ function t(key) {
 // HELPERS
 // ===============================
 function getStartParam() {
+  let param = "";
   if (tg && tg.initDataUnsafe && tg.initDataUnsafe.start_param) {
-    return tg.initDataUnsafe.start_param;
+    param = tg.initDataUnsafe.start_param;
+  } else {
+    const url = new URL(window.location.href);
+    param = url.searchParams.get("tgWebAppStartParam") || url.searchParams.get("startapp") || "";
   }
-
-  const url = new URL(window.location.href);
-
-  return (
-    url.searchParams.get("tgWebAppStartParam") ||
-    url.searchParams.get("startapp") ||
-    ""
-  );
+  // 🛡️ CORREÇÃO: Limpa espaços extras ou caracteres invasores na leitura do Telegram
+  return String(param).trim().replace(/[^a-zA-Z0-9_-]/g, "");
 }
 
 function show(id) {
@@ -388,17 +386,22 @@ function renderSpam(data, payload, keepVisible) {
 }
 
 // ===============================
-// API VERCEL
+// API VERCEL (BLINDADA CONTRA CACHE)
 // ===============================
 async function loadSpam(payload) {
+  // 🛡️ CORREÇÃO 1: Adicionamos um carimbo de tempo (&_t=...) para FORÇAR o Telegram
+  // a não usar a memória cache antiga e sempre buscar o dado real na nuvem!
   const res = await fetch(
-    "/api/get-spam?payload=" + encodeURIComponent(payload)
+    "/api/get-spam?payload=" + encodeURIComponent(payload) + "&_t=" + Date.now(),
+    { cache: "no-store" }
   );
 
   const json = await res.json();
 
   if (!json.ok || !json.data) {
-    throw new Error(json.error || t("error_not_found"));
+    // Se a Vercel mandar o motivo (json.detail), nós mostramos ele na tela!
+    let errMsg = json.detail ? `Erro da Vercel: ${json.detail}` : (json.error || t("error_not_found"));
+    throw new Error(errMsg);
   }
 
   return json.data;
@@ -439,6 +442,8 @@ document.querySelectorAll(".lang-switch button").forEach(function(btn) {
     let data = await loadSpam(payload);
     renderSpam(data, payload, false);
   } catch (e) {
-    renderError(t("error_not_found"));
+    // 🛡️ CORREÇÃO 2: Agora, se der erro, a tela vai mostrar O MENSAGEM REAL (e.message),
+    // e não mais aquele texto engessado que escondia o problema!
+    renderError(e.message || t("error_not_found"));
   }
 })();
