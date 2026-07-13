@@ -26,35 +26,55 @@ module.exports = async function handler(req, res) {
 
     const pathname = "spam-reports/" + payload + ".json";
 
-    // 1. Busca a lista de arquivos com esse prefixo
-    const { blobs } = await list({ prefix: pathname, limit: 1 });
-
-    // 2. Se o array voltar vazio ou indefinido, o arquivo real não existe
-    if (!blobs || blobs.length === 0) {
-      return json(res, 404, { ok: false, error: "Relatório não encontrado no armazenamento" });
-    }
-
-    // 3. CORREÇÃO CRUCIAL: Acessa o índice [0] do array blobs
-    const blobUrl = blobs[0].url;
-    console.log("URL encontrada no Vercel Blob:", blobUrl);
-
-    // 4. Faz o download do conteúdo do JSON público
-    const response = await fetch(blobUrl);
+    // 1. TENTATIVA COM TOKEN EXPLICÍTOCONFIGURADO
+    // Forçamos o SDK a usar a variável de ambiente validada no painel
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
     
-    if (!response.ok) {
-      return json(res, 500, { ok: false, error: "Falha ao ler o conteúdo do arquivo no storage" });
+    const { blobs } = await list({ 
+      prefix: pathname, 
+      limit: 1,
+      token: token 
+    });
+
+    // 2. SE MANDAR VIA LIST E DER CERTO
+    if (blobs && blobs.length > 0) {
+      const blobUrl = blobs[0].url;
+      console.log("URL encontrada via list():", blobUrl);
+      
+      const response = await fetch(blobUrl);
+      if (response.ok) {
+        const data = await response.ok ? await response.json() : null;
+        if (data) return json(res, 200, { ok: true, data });
+      }
     }
 
-    const data = await response.json();
+    // 3. ESTRATÉGIA DE FALLBACK: CONSTRUÇÃO DA URL DIRETA
+    // Se o list falhar por escopo, tentamos ler diretamente usando a estrutura padrão da Vercel
+    // Extrai o ID do bucket a partir do token (a string após '_store_')
+    const tokenParts = token ? token.split("_store_") : [];
+    if (tokenParts.length > 1) {
+      const bucketId = tokenParts[1].toLowerCase();
+      // O formato padrão da URL pública da Vercel é: https://[bucket_id]://[pathname]
+      const directUrl = `https://${bucketId}://${pathname}`;
+      
+      console.log("Tentando acesso direto via URL construída:", directUrl);
+      
+      const directResponse = await fetch(directUrl);
+      if (directResponse.ok) {
+        const data = await directResponse.json();
+        console.log("Sucesso no fallback de leitura direta!");
+        return json(res, 200, { ok: true, data });
+      }
+    }
 
-    // 5. Retorna os dados limpos para o Mini App abrir a tela
-    return json(res, 200, {
-      ok: true,
-      data: data
+    // Se ambas as opções falharem, o arquivo realmente não foi gravado pelo POST
+    return json(res, 404, { 
+      ok: false, 
+      error: "Relatório não encontrado no armazenamento. Verifique se o POST gravou o arquivo com sucesso." 
     });
 
   } catch (e) {
-    console.error("Erro interno no handler:", e);
+    console.error("Erro crítico no handler:", e);
     return json(res, 500, {
       ok: false,
       error: "Erro no servidor: " + (e.message || "Internal error")
