@@ -18,31 +18,34 @@ module.exports = async function handler(req, res) {
     }
 
     const payload = safePayload(req.query.payload);
+    console.log("Buscando relatório para o payload:", payload);
 
     if (!payload) {
       return json(res, 400, { ok: false, error: "Missing payload parameter" });
     }
 
-    // Buscaremos arquivos que COMECEM com essa pasta e id
-    const prefixTarget = "spam-reports/" + payload;
-
     const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-    // Busca o arquivo no storage usando o prefixo limpo e o token explícito
+    // CORREÇÃO: Buscamos apenas pelo ID do payload bruto, sem prefixo de pasta fixo.
+    // Isso evita problemas caso o POST tenha salvado como "/spam-reports" ou na raiz.
     const { blobs } = await list({ 
-      prefix: prefixTarget, 
+      prefix: payload, 
       limit: 1,
       token: token 
     });
 
+    // Se a busca ampla falhar, tentamos listar os últimos 5 arquivos salvos para debugar no console
     if (!blobs || blobs.length === 0) {
+      const debugList = await list({ limit: 5, token: token });
+      console.log("--- LOG DE DIAGNÓSTICO ---");
+      console.log("O arquivo procurado não foi achado. Últimos arquivos no bucket:", 
+        debugList.blobs.map(b => b.pathname)
+      );
+      
       return json(res, 404, { ok: false, error: "Relatório não encontrado no armazenamento" });
     }
 
-    // Correção: Acessa o índice 0 do array retornado
     const blobUrl = blobs[0].url;
-
-    // Faz o download do conteúdo
     const response = await fetch(blobUrl);
     
     if (!response.ok) {
