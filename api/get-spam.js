@@ -13,13 +13,14 @@ function safePayload(value) {
 
 module.exports = async function handler(req, res) {
   try {
-    // 1. Garante que só aceita requisições GET
     if (req.method !== "GET") {
       return json(res, 405, { ok: false, error: "Method not allowed" });
     }
 
-    // 2. CORREÇÃO: Lê da Query String (?payload=...) e não do body
     const payload = safePayload(req.query.payload);
+
+    // LOG AUXILIAR: Veja no painel da Vercel o que está chegando
+    console.log("Buscando relatório para o payload:", payload);
 
     if (!payload) {
       return json(res, 400, { ok: false, error: "Missing payload parameter" });
@@ -27,15 +28,14 @@ module.exports = async function handler(req, res) {
 
     const pathname = "spam-reports/" + payload + ".json";
 
-    // 3. CORREÇÃO: Procura pelo prefixo usando list() para evitar erro de URL do head()
     const { blobs } = await list({ prefix: pathname, limit: 1 });
 
-    // Se o array voltar vazio, o arquivo realmente não existe no Blob
+    // Se o array voltar vazio, o arquivo não existe com esse nome exato
     if (!blobs || blobs.length === 0) {
       return json(res, 404, { ok: false, error: "Relatório não encontrado no armazenamento" });
     }
 
-    // 4. Busca o conteúdo do JSON usando a URL pública retornada
+    // CORREÇÃO: blobs é um array, precisamos acessar o índice [0]
     const response = await fetch(blobs[0].url);
     
     if (!response.ok) {
@@ -44,7 +44,6 @@ module.exports = async function handler(req, res) {
 
     const data = await response.json();
 
-    // 5. Retorna o relatório para o Mini App
     return json(res, 200, {
       ok: true,
       data: data
