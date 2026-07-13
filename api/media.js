@@ -1,4 +1,4 @@
-const { get } = require("@vercel/blob");
+const { list } = require("@vercel/blob");
 
 function sendJson(res, status, data) {
   res.statusCode = status;
@@ -14,78 +14,38 @@ function safePayload(value) {
 
 function safeType(value) {
   const type = String(value || "");
-
-  if (type === "photo") return "photo";
-  if (type === "video") return "video";
-  if (type === "document") return "document";
-  if (type === "audio") return "audio";
-  if (type === "voice") return "voice";
-  if (type === "animation") return "animation";
-  if (type === "video_note") return "video_note";
-  if (type === "sticker") return "sticker";
-
-  return "";
+  const validTypes = ["photo", "video", "document", "audio", "voice", "animation", "video_note", "sticker"];
+  return validTypes.includes(type) ? type : "";
 }
 
-async function streamToText(stream) {
-  if (!stream) {
-    throw new Error("Stream not found");
-  }
-
-  if (typeof stream.getReader === "function") {
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let result = "";
-
-    while (true) {
-      const chunk = await reader.read();
-      if (chunk.done) break;
-      result += decoder.decode(chunk.value, { stream: true });
-    }
-
-    result += decoder.decode();
-    return result;
-  }
-
-  let result = "";
-
-  for await (const chunk of stream) {
-    result += Buffer.isBuffer(chunk)
-      ? chunk.toString("utf8")
-      : Buffer.from(chunk).toString("utf8");
-  }
-
-  return result;
-}
-
+// CORREÇÃO DOS MÉTODO DE LEITURA DO JSON DO STORAGE
 async function readSpam(payload) {
-  const pathname = "spam-reports/" + payload + ".json";
+  const prefixTarget = "spam-reports/" + payload;
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
 
-  const file = await get(pathname, {
-    access: "private"
+  // Busca o arquivo JSON correto gerado com ou sem hash aleatória
+  const { blobs } = await list({ 
+    prefix: prefixTarget, 
+    limit: 1,
+    token: token 
   });
 
-  if (!file || !file.stream) {
-    throw new Error("Blob stream not found");
+  if (!blobs || blobs.length === 0) {
+    throw new Error("Relatório não encontrado no armazenamento");
   }
 
-  const text = await streamToText(file.stream);
-  return JSON.parse(text);
+  // Faz o download direto do JSON público de forma otimizada
+  const response = await fetch(blobs[0].url);
+  if (!response.ok) {
+    throw new Error("Falha ao ler dados do storage");
+  }
+
+  return await response.json();
 }
 
 function getFileIdByType(media, type) {
   if (!media) return null;
-
-  if (type === "photo") return media.photo;
-  if (type === "video") return media.video;
-  if (type === "document") return media.document;
-  if (type === "audio") return media.audio;
-  if (type === "voice") return media.voice;
-  if (type === "animation") return media.animation;
-  if (type === "video_note") return media.video_note;
-  if (type === "sticker") return media.sticker;
-
-  return null;
+  return media[type] || null;
 }
 
 function guessContentType(filePath, fallbackType) {
@@ -95,14 +55,11 @@ function guessContentType(filePath, fallbackType) {
   if (path.endsWith(".png")) return "image/png";
   if (path.endsWith(".webp")) return "image/webp";
   if (path.endsWith(".gif")) return "image/gif";
-
   if (path.endsWith(".mp4")) return "video/mp4";
   if (path.endsWith(".mov")) return "video/quicktime";
   if (path.endsWith(".webm")) return "video/webm";
-
   if (path.endsWith(".mp3")) return "audio/mpeg";
-  if (path.endsWith(".ogg")) return "audio/ogg";
-  if (path.endsWith(".oga")) return "audio/ogg";
+  if (path.endsWith(".ogg") || path.endsWith(".oga")) return "audio/ogg";
   if (path.endsWith(".m4a")) return "audio/mp4";
   if (path.endsWith(".wav")) return "audio/wav";
 
@@ -119,9 +76,7 @@ function guessFileName(filePath, type) {
   const path = String(filePath || "");
   const last = path.split("/").pop();
 
-  if (last && last.includes(".")) {
-    return last;
-  }
+  if (last && last.includes(".")) return last;
 
   if (type === "photo") return "media.jpg";
   if (type === "sticker") return "sticker.webp";
@@ -137,10 +92,7 @@ function guessFileName(filePath, type) {
 module.exports = async function handler(req, res) {
   try {
     if (req.method !== "GET") {
-      return sendJson(res, 405, {
-        ok: false,
-        error: "Method not allowed"
-      });
+      return sendJson(res, 405, { ok: false, error: "Method not allowed" });
     }
 
     const payload = safePayload(req.query.payload);
@@ -148,91 +100,49 @@ module.exports = async function handler(req, res) {
     const debug = String(req.query.debug || "") === "1";
 
     if (!payload || !type) {
-      return sendJson(res, 400, {
-        ok: false,
-        error: "Missing payload or type",
-        payload,
-        type
-      });
+      return sendJson(res, 400, { ok: false, error: "Missing payload or type", payload, type });
     }
 
     const botToken = process.env.BOT_TOKEN;
-
     if (!botToken) {
-      return sendJson(res, 500, {
-        ok: false,
-        error: "BOT_TOKEN not configured"
-      });
+      return sendJson(res, 500, { ok: false, error: "BOT_TOKEN not configured" });
     }
 
     let data;
-
     try {
       data = await readSpam(payload);
     } catch (e) {
-      return sendJson(res, 404, {
-        ok: false,
-        error: "Report not found",
-        detail: e.message || String(e)
-      });
+      return sendJson(res, 404, { ok: false, error: "Report not found", detail: e.message || String(e) });
     }
 
     const media = data.media || {};
     const fileId = getFileIdByType(media, type);
 
     if (!fileId) {
-      return sendJson(res, 404, {
-        ok: false,
-        error: "File ID not found",
-        type,
-        media
-      });
+      return sendJson(res, 404, { ok: false, error: "File ID not found", type, media });
     }
 
+    // Busca o caminho do arquivo na API do Telegram
     const tgRes = await fetch(
-      "https://api.telegram.org/bot" +
-        botToken +
-        "/getFile?file_id=" +
-        encodeURIComponent(fileId)
+      "https://api.telegram.org/bot" + botToken + "/getFile?file_id=" + encodeURIComponent(fileId)
     );
-
     const tgJson = await tgRes.json();
 
     if (debug) {
-      return sendJson(res, 200, {
-        ok: true,
-        payload,
-        type,
-        file_id: fileId,
-        telegram_getFile: tgJson
-      });
+      return sendJson(res, 200, { ok: true, payload, type, file_id: fileId, telegram_getFile: tgJson });
     }
 
     if (!tgJson.ok || !tgJson.result || !tgJson.result.file_path) {
-      return sendJson(res, 500, {
-        ok: false,
-        error: "Could not get Telegram file",
-        telegram: tgJson
-      });
+      return sendJson(res, 500, { ok: false, error: "Could not get Telegram file", telegram: tgJson });
     }
 
     const filePath = tgJson.result.file_path;
+    const fileUrl = "https://api.telegram.org/file/bot" + botToken + "/" + filePath;
 
-    const fileUrl =
-      "https://api.telegram.org/file/bot" +
-      botToken +
-      "/" +
-      filePath;
-
+    // Baixa o binário do servidor do Telegram
     const fileRes = await fetch(fileUrl);
-
     if (!fileRes.ok) {
-      return sendJson(res, 500, {
-        ok: false,
-        error: "Could not download Telegram file",
-        status: fileRes.status,
-        statusText: fileRes.statusText
-      });
+      return sendJson(res, 500, { ok: false, error: "Could not download Telegram file", status: fileRes.status });
     }
 
     const arrayBuffer = await fileRes.arrayBuffer();
@@ -241,6 +151,7 @@ module.exports = async function handler(req, res) {
     const contentType = guessContentType(filePath, type);
     const fileName = guessFileName(filePath, type);
 
+    // Serve a imagem/vídeo direto com as flags corretas para a tag <img> do HTML ler
     res.statusCode = 200;
     res.setHeader("Content-Type", contentType);
     res.setHeader("Content-Length", String(buffer.length));
@@ -249,9 +160,6 @@ module.exports = async function handler(req, res) {
     res.end(buffer);
 
   } catch (e) {
-    return sendJson(res, 500, {
-      ok: false,
-      error: e.message || "Internal error"
-    });
+    return sendJson(res, 500, { ok: false, error: e.message || "Internal error" });
   }
 };
