@@ -1,85 +1,41 @@
-const { put } = require("@vercel/blob");
+const { get } = require("@vercel/blob");
+// Não importa se é privado, o `get` precisa de autenticação
+// Geralmente o token é lido automaticamente do ambiente se configurado no Vercel
 
 function json(res, status, data) {
   res.status(status).setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(data));
 }
 
-function safePayload(value) {
-  return String(value || "")
-    .replace(/[^a-zA-Z0-9_-]/g, "")
-    .slice(0, 120);
-}
-
 module.exports = async function handler(req, res) {
   try {
-    if (req.method !== "POST") {
+    if (req.method !== "GET") {
       return json(res, 405, { ok: false, error: "Method not allowed" });
     }
 
-    const apiKey = req.headers["x-api-key"];
-    if (!apiKey || apiKey !== process.env.SPAM_API_KEY) {
-      return json(res, 401, { ok: false, error: "Unauthorized: API Key incorreta ou ausente." });
+    // Pega o pathname (nome do arquivo) da query string
+    // Ex: /api/get-spam?pathname=spam-reports/payload123.json
+    const pathname = req.query.pathname;
+
+    if (!pathname) {
+      return json(res, 400, { ok: false, error: "Falta o parâmetro 'pathname'" });
     }
 
-    const body = typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
-    const payload = safePayload(body.payload);
+    // ✅ LEITURA DE ARQUIVO PRIVADO
+    // O Vercel Blob lê o token de ambiente AUTOMATICAMENTE.
+    // Não passe o token manualmente se não for estritamente necessário.
+    const blob = await get(pathname);
 
-    if (!payload) {
-      return json(res, 400, { ok: false, error: "Missing payload" });
-    }
-
-    // Mantemos a estrutura organizada por pastas virtuais
-    const pathname = "spam-reports/" + payload + ".json";
-
-    const data = {
-      payload: payload,
-      pathname: pathname,
-      group_title: body.group_title || "",
-      chat_id: body.chat_id || "",
-      message_id: body.message_id || "",
-      date: body.date || "",
-      user: {
-        id: body.user_id || "",
-        name: body.user_name || "",
-        username: body.username || "",
-        is_bot: body.is_bot === true
-      },
-      reason: body.reason || "",
-      score: body.score || 0,
-      categories: Array.isArray(body.categories) ? body.categories : [],
-      content: body.content || "Conteúdo não textual",
-      media: body.media || {},
-      profile_url: body.profile_url || "",
-      created_at: Date.now()
-    };
-
-    // 🛡️ CORREÇÃO CIRÚRGICA: Mudado para "private" para aceitar o seu bucket privado
-    // addRandomSuffix desativado para garantir que o nome seja previsível para o GET
-    const blob = await put(
-      pathname,
-      JSON.stringify(data),
-      {
-        access: "private", 
-        contentType: "application/json",
-        allowOverwrite: true,
-        addRandomSuffix: false,
-        token: process.env.BLOB_READ_WRITE_TOKEN
-      }
-    );
-
+    // Retorna o conteúdo JSON
     return json(res, 200, {
       ok: true,
-      payload: payload,
-      pathname: blob.pathname,
-      blob: {
-        url: blob.url,
-        pathname: blob.pathname
-      }
+      content: JSON.parse(blob.text()), // Converte o texto do blob para objeto
+      filename: blob.pathname
     });
 
   } catch (e) {
-    console.error("Erro na gravação do POST:", e);
-    return json(res, 500, { ok: false, error: "Erro no Vercel Blob: " + (e.message || "Internal error") });
+    console.error("Erro na leitura GET:", e);
+    // Se for erro de "file not found" ou "unauthorized", trate com cuidado
+    return json(res, 500, { ok: false, error: "Erro ao recuperar dados: " + e.message });
   }
 };
