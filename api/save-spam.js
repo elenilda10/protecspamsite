@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
     if (!apiKey || apiKey !== process.env.SPAM_API_KEY) {
       return json(res, 401, {
         ok: false,
-        error: "Unauthorized"
+        error: "Unauthorized: API Key incorreta ou ausente na Vercel."
       });
     }
 
@@ -72,11 +72,13 @@ module.exports = async function handler(req, res) {
       created_at: Date.now()
     };
 
+    // 🛡️ CORREÇÃO CIRÚRGICA: Alterado de "private" para "public"
+    // Isso permite que o Mini App leia o relatório instantaneamente sem erro de permissão!
     const blob = await put(
       pathname,
       JSON.stringify(data),
       {
-        access: "private",
+        access: "public", 
         contentType: "application/json",
         allowOverwrite: true,
         addRandomSuffix: false
@@ -96,7 +98,7 @@ module.exports = async function handler(req, res) {
   } catch (e) {
     return json(res, 500, {
       ok: false,
-      error: e.message || "Internal error"
+      error: "Erro no Vercel Blob: " + (e.message || "Internal error")
     });
   }
 };
