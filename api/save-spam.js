@@ -19,7 +19,7 @@ module.exports = async function handler(req, res) {
 
     const apiKey = req.headers["x-api-key"];
     if (!apiKey || apiKey !== process.env.SPAM_API_KEY) {
-      return json(res, 401, { ok: false, error: "Unauthorized: API Key incorreta ou ausente." });
+      return json(res, 401, { ok: false, error: "Unauthorized: Chave inválida" });
     }
 
     const body = typeof req.body === "object" ? req.body : JSON.parse(req.body || "{}");
@@ -29,12 +29,19 @@ module.exports = async function handler(req, res) {
       return json(res, 400, { ok: false, error: "Missing payload" });
     }
 
-    // Mantemos a estrutura organizada por pastas
-    const pathname = "spam-reports/" + payload + ".json";
+    // Define o pathname com base no tipo de mídia se for o caso
+    let pathname;
+    if (body.media && body.media.photo) {
+      pathname = `spam-media/${payload}_photo.json`;
+    } else if (body.media && body.media.video) {
+      pathname = `spam-media/${payload}_video.json`;
+    } else {
+      pathname = `spam-reports/${payload}.json`;
+    }
 
     const data = {
-      payload: payload,
-      pathname: pathname,
+      payload,
+      pathname,
       group_title: body.group_title || "",
       chat_id: body.chat_id || "",
       message_id: body.message_id || "",
@@ -49,34 +56,41 @@ module.exports = async function handler(req, res) {
       score: body.score || 0,
       categories: Array.isArray(body.categories) ? body.categories : [],
       content: body.content || "Conteúdo não textual",
-      media: body.media || {},
+      media: body.media || {}, // Aqui estão os file_id da mídia
       profile_url: body.profile_url || "",
       created_at: Date.now()
     };
 
-    // CORREÇÃO: Forçamos o token explicitamente e deixamos o sufixo aleatório ativo (padrão Vercel)
-    // Isso evita conflitos de cache na CDN e garante a gravação imediata
+    // ✅ CORREÇÃO PARA MÍDIA PRIVADA:
+    // 1. access: "private" (Obrigatório se o store for privado)
+    // 2. NENHUM token manual (Vercel usa BLOB_READ_WRITE_TOKEN do ambiente)
+    // 3. contentType depende do que você está salvando (JSON no caso)
     const blob = await put(
       pathname,
       JSON.stringify(data),
       {
-        access: "public", 
+        access: "private", 
         contentType: "application/json",
-        token: process.env.BLOB_READ_WRITE_TOKEN
+        allowOverwrite: true,
+        addRandomSuffix: false
+        // O token é lido automaticamente do ambiente BLOB_READ_WRITE_TOKEN
       }
     );
 
+    // A URL retornada (blob.url) é uma URL assinada temporária
+    // Isso permite que o botão no Telegram acesse o conteúdo por um tempo limitado
     return json(res, 200, {
       ok: true,
       payload: payload,
       pathname: blob.pathname,
       blob: {
-        url: blob.url,
+        url: blob.url, // URL segura e temporária
         pathname: blob.pathname
       }
     });
 
   } catch (e) {
-    return json(res, 500, { ok: false, error: "Erro no Vercel Blob: " + (e.message || "Internal error") });
+    console.error("Erro ao salvar mídia/dados:", e);
+    return json(res, 500, { ok: false, error: "Erro no Vercel Blob: " + (e.message || "Erro interno") });
   }
 };
