@@ -61,30 +61,29 @@ module.exports = async function handler(req, res) {
       created_at: Date.now()
     };
 
-    // ✅ CORREÇÃO PARA MÍDIA PRIVADA:
-    // 1. access: "private" (Obrigatório se o store for privado)
-    // 2. NENHUM token manual (Vercel usa BLOB_READ_WRITE_TOKEN do ambiente)
-    // 3. contentType depende do que você está salvando (JSON no caso)
+    // ==================================================
+    // ✅ CORREÇÃO CRÍTICA DO ERRO 500:
+    // Alterado de 'private' para 'public'.
+    // ==================================================
     const blob = await put(
       pathname,
       JSON.stringify(data),
       {
-        access: "private", 
+        access: "public", // ⚡ Corrigido! Obrigatório para buckets públicos da Vercel.
         contentType: "application/json",
         allowOverwrite: true,
         addRandomSuffix: false
-        // O token é lido automaticamente do ambiente BLOB_READ_WRITE_TOKEN
+        // O token é lido automaticamente da variável de ambiente BLOB_READ_WRITE_TOKEN
       }
     );
 
-    // A URL retornada (blob.url) é uma URL assinada temporária
-    // Isso permite que o botão no Telegram acesse o conteúdo por um tempo limitado
+    // O blob.url retornado agora será uma URL pública estável
     return json(res, 200, {
       ok: true,
       payload: payload,
       pathname: blob.pathname,
       blob: {
-        url: blob.url, // URL segura e temporária
+        url: blob.url, // URL pública funcional
         pathname: blob.pathname
       }
     });
