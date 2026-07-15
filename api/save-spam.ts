@@ -99,15 +99,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       created_at: Date.now()
     };
 
-    // Upload público
+    // ✅ UPLOAD CORRIGIDO (Removido o 'allowOverwrite' inválido)
     const blob = await put(
       pathname,
       JSON.stringify(data),
       {
         access: "public",
         contentType: "application/json",
-        allowOverwrite: true,
-        addRandomSuffix: false
+        addRandomSuffix: false // ⚡ Apenas isso já basta para substituir o arquivo se o pathname for igual!
       }
     );
 
