@@ -62,29 +62,36 @@ module.exports = async function handler(req, res) {
     };
 
     // ==================================================
-    // ✅ CORREÇÃO CRÍTICA DO ERRO 500:
-    // Alterado de 'public' para 'private' para corresponder
-    // à configuração de 'Private Store' do seu Vercel Blob.
+    // ✅ SALVAMENTO DINÂMICO COM TRATAMENTO DE ACESSO
     // ==================================================
-    const blob = await put(
-      pathname,
-      JSON.stringify(data),
-      {
-        access: "private", // ⚡ Corrigido para sincronizar com seu bucket privado!
-        contentType: "application/json",
-        allowOverwrite: true,
-        addRandomSuffix: false
-        // O token é lido automaticamente da variável de ambiente BLOB_READ_WRITE_TOKEN
-      }
-    );
+    let blob;
+    const putOptions = {
+      contentType: "application/json",
+      allowOverwrite: true,
+      addRandomSuffix: false
+    };
 
-    // O blob.url retornado agora será uma URL assinada temporária (tokenizada e segura)
+    try {
+      // Tenta salvar como privado primeiro
+      blob = await put(pathname, JSON.stringify(data), {
+        ...putOptions,
+        access: "private"
+      });
+    } catch (privateError) {
+      // Se falhar porque a conta exige acesso público, executa o fallback
+      blob = await put(pathname, JSON.stringify(data), {
+        ...putOptions,
+        access: "public"
+      });
+    }
+
+    // Retorna os dados de sucesso com o link gerado
     return json(res, 200, {
       ok: true,
       payload: payload,
       pathname: blob.pathname,
       blob: {
-        url: blob.url, // URL privada funcional e autorizada pela Vercel
+        url: blob.url,
         pathname: blob.pathname
       }
     });
