@@ -1,5 +1,5 @@
 // api/get-spam.js
-const { get } = require("@vercel/blob");
+const { list } = require("@vercel/blob");
 
 // Função auxiliar para resposta JSON
 function json(res, status, data) {
@@ -23,30 +23,58 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // 2. Monta o pathname exato (igual ao do save-spam.js)
-    const pathname = "spam-reports/" + payload + ".json";
+    // ==================================================
+    // 🔍 BUSCA ROBUSTA DE ARQUIVOS (MÍDIA OU RELATÓRIO)
+    // Procuramos o arquivo correspondente ao payload em ambas as pastas.
+    // ==================================================
+    let blobUrl = null;
+    let foundPathname = null;
 
-    console.log("Buscando blob:", pathname);
-
-    // 3. CHAMADA BLINDADA DO BLOB
-    // A biblioteca @vercel/blob lê BLOB_READ_WRITE_TOKEN do ambiente automaticamente.
-    // Se o erro ainda ocorrer, é porque o token não está no ambiente OU a versão da lib é antiga.
-    // Tenta pegar o token explicitamente para debug se necessário, mas o 'get' usa o ambiente.
+    // Tentativa 1: Procurar na pasta de relatórios de texto
+    const listReports = await list({ prefix: `spam-reports/${payload}` });
     
-    const blob = await get(pathname);
+    if (listReports.blobs && listReports.blobs.length > 0) {
+      blobUrl = listReports.blobs[0].url;
+      foundPathname = listReports.blobs[0].pathname;
+    } else {
+      // Tentativa 2: Se não achar, procura na pasta de mídias (fotos/vídeos)
+      const listMedia = await list({ prefix: `spam-media/${payload}` });
+      if (listMedia.blobs && listMedia.blobs.length > 0) {
+        blobUrl = listMedia.blobs[0].url;
+        foundPathname = listMedia.blobs[0].pathname;
+      }
+    }
 
-    // 4. Retorna os dados
-    const content = JSON.parse(blob.text());
+    // Se não encontrou o arquivo em nenhum dos caminhos
+    if (!blobUrl) {
+      return json(res, 404, { 
+        ok: false, 
+        error: `Nenhum registro de spam encontrado para o ID: ${payload}` 
+      });
+    }
+
+    console.log("Baixando dados do Blob:", blobUrl);
+
+    // ==================================================
+    // 📥 DOWNLOAD DO CONTEÚDO VIA FETCH NATIVO
+    // ==================================================
+    const responseBlob = await fetch(blobUrl);
     
+    if (!responseBlob.ok) {
+      throw new Error(`Erro na conexão com o Vercel Blob (HTTP ${responseBlob.status})`);
+    }
+
+    const content = await responseBlob.json();
+    
+    // 4. Retorna os dados com sucesso
     return json(res, 200, {
       ok: true,
       data: content,
-      filename: blob.pathname
+      filename: foundPathname
     });
 
   } catch (e) {
     console.error("Erro detalhado no get-spam:", e);
-    // Se for erro de token ou autenticação, o erro real estará aqui
     return json(res, 500, { 
       ok: false, 
       error: "Erro ao recuperar dados: " + e.message,
