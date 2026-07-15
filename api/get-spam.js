@@ -1,7 +1,5 @@
-// api/get-spam.js
 const { list } = require("@vercel/blob");
 
-// Função auxiliar para resposta JSON
 function json(res, status, data) {
   res.status(status).setHeader("Content-Type", "application/json");
   res.end(JSON.stringify(data));
@@ -13,7 +11,6 @@ module.exports = async function handler(req, res) {
       return json(res, 405, { ok: false, error: "Method not allowed" });
     }
 
-    // 1. Pega o payload da query (enviado pelo app.js)
     const payload = req.query.payload;
 
     if (!payload) {
@@ -23,54 +20,30 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // ==================================================
-    // 🔍 BUSCA ROBUSTA DE ARQUIVOS (MÍDIA OU RELATÓRIO)
-    // Procuramos o arquivo correspondente ao payload em ambas as pastas.
-    // ==================================================
-    let blobUrl = null;
-    let foundPathname = null;
+    // 🔍 Busca usando o prefixo do seu novo Blob público
+    const search = await list({ prefix: "spam-" });
+    const file = search.blobs.find(b => b.pathname.includes(payload));
 
-    // Tentativa 1: Procurar na pasta de relatórios de texto
-    const listReports = await list({ prefix: `spam-reports/${payload}` });
-    
-    if (listReports.blobs && listReports.blobs.length > 0) {
-      blobUrl = listReports.blobs[0].url;
-      foundPathname = listReports.blobs[0].pathname;
-    } else {
-      // Tentativa 2: Se não achar, procura na pasta de mídias (fotos/vídeos)
-      const listMedia = await list({ prefix: `spam-media/${payload}` });
-      if (listMedia.blobs && listMedia.blobs.length > 0) {
-        blobUrl = listMedia.blobs[0].url;
-        foundPathname = listMedia.blobs[0].pathname;
-      }
-    }
-
-    // Se não encontrou o arquivo em nenhum dos caminhos
-    if (!blobUrl) {
+    if (!file) {
       return json(res, 404, { 
         ok: false, 
         error: `Nenhum registro de spam encontrado para o ID: ${payload}` 
       });
     }
 
-    console.log("Baixando dados do Blob:", blobUrl);
-
-    // ==================================================
-    // 📥 DOWNLOAD DO CONTEÚDO VIA FETCH NATIVO
-    // ==================================================
-    const responseBlob = await fetch(blobUrl);
+    // 📥 Download direto e performático do JSON público via Fetch nativo
+    const responseBlob = await fetch(file.url);
     
     if (!responseBlob.ok) {
-      throw new Error(`Erro na conexão com o Vercel Blob (HTTP ${responseBlob.status})`);
+      throw new Error(`Erro de conexão com o Storage do Vercel Blob (HTTP ${responseBlob.status})`);
     }
 
     const content = await responseBlob.json();
     
-    // 4. Retorna os dados com sucesso
     return json(res, 200, {
       ok: true,
       data: content,
-      filename: foundPathname
+      url: file.url
     });
 
   } catch (e) {
