@@ -4,8 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>ProtecSpam • Detalhes</title>
+  <!-- Tailwind CSS CDN para renderização premium -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SDK oficial do Telegram WebApp -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Linkagem para a sua nova lógica app.js de forma assíncrona -->
+  <script src="app.js" defer></script>
   <style>
     body {
       background: radial-gradient(circle at top, #1e293b, #0f172a);
@@ -16,12 +20,50 @@
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
     }
+    /* Suporte a layouts e mídias gerados dinamicamente no JS */
+    .media-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    .media-preview {
+      width: 100%;
+      max-height: 16rem;
+      object-fit: contain;
+      border-radius: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background-color: #000;
+    }
+    .audio-preview {
+      width: 100%;
+      margin-top: 0.5rem;
+    }
+    .file-btn {
+      display: inline-block;
+      width: 100%;
+      text-align: center;
+      padding: 0.75rem;
+      background-color: #2563eb;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.875rem;
+      border-radius: 0.75rem;
+      transition: all 0.2s;
+    }
+    .file-btn:hover {
+      background-color: #3b82f6;
+    }
   </style>
 </head>
 <body class="text-slate-100 min-h-screen pb-10">
 
+  <!-- CONTAINER CENTRAL -->
   <div class="max-w-md mx-auto px-4 pt-6">
 
+    <!-- HEADER DO APP -->
     <div class="glass-card rounded-2xl p-5 mb-5 flex items-center gap-4 shadow-xl">
       <div class="bg-gradient-to-tr from-rose-500 to-red-600 p-3 rounded-xl shadow-lg shadow-red-500/20">
         <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -29,313 +71,126 @@
         </svg>
       </div>
       <div>
-        <h1 class="text-xl font-bold tracking-tight text-white">ProtecSpam</h1>
-        <p id="txt-subtitle" class="text-xs text-slate-400">Carregando detalhes do log...</p>
+        <h1 id="appTitle" class="text-xl font-bold tracking-tight text-white">ProtecSpam</h1>
+        <p id="appSubtitle" class="text-xs text-slate-400">Carregando detalhes do log...</p>
       </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-2 mb-6">
-      <button onclick="changeLang('pt')" id="btn-pt" class="py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-blue-600 text-white shadow-lg shadow-blue-600/25">
+    <!-- SELETOR DE IDIOMAS (Abas de Controle Estilizadas) -->
+    <div class="lang-switch grid grid-cols-3 gap-2 mb-6">
+      <button data-lang="pt" class="py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-slate-800/80 text-slate-400 hover:bg-slate-700/50 [&.active]:bg-blue-600 [&.active]:text-white [&.active]:shadow-lg [&.active]:shadow-blue-600/25">
         🇧🇷 PT
       </button>
-      <button onclick="changeLang('en')" id="btn-en" class="py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-slate-800/80 text-slate-400 hover:bg-slate-700/50">
+      <button data-lang="en" class="py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-slate-800/80 text-slate-400 hover:bg-slate-700/50 [&.active]:bg-blue-600 [&.active]:text-white [&.active]:shadow-lg [&.active]:shadow-blue-600/25">
         🇺🇸 EN
       </button>
-      <button onclick="changeLang('es')" id="btn-es" class="py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-slate-800/80 text-slate-400 hover:bg-slate-700/50">
+      <button data-lang="es" class="py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-slate-800/80 text-slate-400 hover:bg-slate-700/50 [&.active]:bg-blue-600 [&.active]:text-white [&.active]:shadow-lg [&.active]:shadow-blue-600/25">
         🇪🇸 ES
       </button>
     </div>
 
-    <div id="loading-box" class="glass-card rounded-2xl p-10 text-center shadow-lg">
+    <!-- TELA DE LOADING (Carregando...) -->
+    <div id="loading" class="glass-card rounded-2xl p-10 text-center shadow-lg">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-rose-500 mx-auto mb-4"></div>
-      <p id="txt-loading" class="text-sm text-slate-400">Consultando base de spams...</p>
+      <p id="loadingText" class="text-sm text-slate-400">Carregando informações...</p>
     </div>
 
-    <div id="error-box" class="hidden glass-card rounded-2xl p-6 text-center border-rose-500/30 shadow-lg">
+    <!-- TELA DE ERRO -->
+    <div id="error" class="hidden glass-card rounded-2xl p-6 text-center border-rose-500/30 shadow-lg">
       <div class="text-rose-500 mb-3">
         <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
       </div>
-      <h3 id="txt-error-title" class="text-lg font-bold text-white mb-1">Ops! Ocorreu um erro</h3>
-      <p id="error-desc" class="text-sm text-slate-400 mb-4">Não encontramos esse registro.</p>
-      <button onclick="window.location.reload()" id="btn-retry" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg transition-all">Tentar novamente</button>
+      <h3 id="errorTitle" class="text-lg font-bold text-white mb-1">⚠️ Erro</h3>
+      <p id="errorText" class="text-sm text-slate-400 mb-4">Não foi possível carregar os dados.</p>
+      <button onclick="window.location.reload()" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold rounded-lg transition-all">Tentar Novamente</button>
     </div>
 
-    <div id="content-box" class="hidden space-y-5 animate-[fadeIn_0.3s_ease-out]">
+    <!-- CONTEÚDO PRINCIPAL (DASHBOARD DO SPAM) -->
+    <div id="content" class="hidden space-y-5">
 
-      <div class="glass-card rounded-2xl p-5 shadow-lg">
-        <h3 id="lbl-message" class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Mensagem Removida</h3>
-        <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-800 max-h-40 overflow-y-auto">
-          <p id="spam-text" class="text-sm leading-relaxed text-slate-200 select-all whitespace-pre-wrap"></p>
+      <!-- BANNER DE ALERTA -->
+      <div class="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 flex gap-3.5 items-start">
+        <div class="text-rose-500 mt-0.5">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
         </div>
-        
-        <div id="media-container" class="hidden mt-4">
-          <h3 id="lbl-media" class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Mídia Anexada</h3>
-          <div class="rounded-xl overflow-hidden bg-black border border-slate-800 flex justify-center items-center">
-            <img id="media-image" class="hidden w-full max-h-64 object-contain" src="" alt="Spam Image">
-            <video id="media-video" class="hidden w-full max-h-64 object-contain" controls></video>
-          </div>
+        <div>
+          <h3 id="alertTitle" class="text-sm font-bold text-rose-400">🚨 Spam detectado</h3>
+          <p id="alertDesc" class="text-xs text-rose-300/85 mt-0.5 leading-relaxed">Esta mensagem foi removida pelo sistema de proteção.</p>
         </div>
       </div>
 
+      <!-- CARD DA MENSAGEM DO INFRATOR -->
+      <div class="glass-card rounded-2xl p-5 shadow-lg">
+        <h3 id="contentTitle" class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">📄 Conteúdo</h3>
+        <div class="bg-slate-900/60 rounded-xl p-4 border border-slate-800 max-h-40 overflow-y-auto">
+          <p id="spamText" class="text-sm leading-relaxed text-slate-200 select-all whitespace-pre-wrap"></p>
+        </div>
+      </div>
+
+      <!-- CARD DE MÍDIA ANEXADA -->
+      <div id="mediaCard" class="hidden glass-card rounded-2xl p-5 shadow-lg">
+        <h3 id="mediaTitle" class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">🖼️ Mídia enviada</h3>
+        <div id="mediaBox" class="rounded-xl overflow-hidden flex flex-col justify-center items-center"></div>
+      </div>
+
+      <!-- CARD DE DETALHES TÉCNICOS -->
       <div class="glass-card rounded-2xl p-5 shadow-lg space-y-4">
         
-        <div>
-          <h3 id="lbl-violator" class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Infrator</h3>
-          <div class="flex items-center justify-between bg-slate-900/30 p-3 rounded-xl border border-slate-800/50">
-            <div>
-              <p id="user-name" class="text-sm font-bold text-white"></p>
-              <p id="user-username" class="text-xs text-blue-400"></p>
+        <!-- PROPRIEDADES DE INFORMAÇÕES -->
+        <div class="grid grid-cols-1 gap-3.5 text-sm">
+          <div class="flex justify-between border-b border-slate-800 pb-2">
+            <span id="labelGroup" class="text-slate-400 font-medium">Grupo</span>
+            <span id="group" class="font-bold text-slate-200"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-800 pb-2">
+            <span id="labelMessage" class="text-slate-400 font-medium">Mensagem</span>
+            <span id="message" class="font-bold text-slate-200"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-800 pb-2">
+            <span id="labelUser" class="text-slate-400 font-medium">Usuário</span>
+            <span id="user" class="font-bold text-blue-400"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-800 pb-2">
+            <span id="labelUserId" class="text-slate-400 font-medium">ID</span>
+            <span id="userId" class="font-mono text-slate-300"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-800 pb-2">
+            <span id="labelReason" class="text-slate-400 font-medium">Motivo</span>
+            <span id="reason" class="font-bold text-rose-400"></span>
+          </div>
+          <div class="flex justify-between border-b border-slate-800 pb-2">
+            <span id="labelDate" class="text-slate-400 font-medium">Data</span>
+            <span id="date" class="font-semibold text-slate-200"></span>
+          </div>
+          
+          <!-- RATING DE SCORE COM BARRA INTERATIVA -->
+          <div>
+            <div class="flex justify-between mb-1">
+              <span id="labelScore" class="text-slate-400 font-medium">Score</span>
+              <span id="score" class="font-mono font-bold text-slate-100"></span>
             </div>
-            <a id="user-profile-btn" href="#" target="_blank" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-xs font-bold rounded-lg transition-all">Perfil</a>
-          </div>
-        </div>
-
-        <div>
-          <h3 id="lbl-reason" class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Motivo do Bloqueio</h3>
-          <p id="spam-reason" class="text-sm text-rose-400 font-semibold"></p>
-        </div>
-
-        <div>
-          <div class="flex justify-between items-center mb-1">
-            <h3 id="lbl-risk" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Risco Calculado</h3>
-            <span id="risk-badge" class="text-xs font-bold px-2.5 py-0.5 rounded-full"></span>
-          </div>
-          <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
-            <div id="risk-bar" class="h-full rounded-full transition-all duration-1000" style="width: 0%"></div>
+            <!-- Barra de Progresso Dinâmica -->
+            <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+              <div id="scoreBar" class="h-full rounded-full transition-all duration-1000 bg-emerald-500" style="width: 0%"></div>
+            </div>
           </div>
         </div>
 
       </div>
 
-      <div class="glass-card rounded-2xl p-5 shadow-lg text-xs space-y-3 text-slate-400">
-        <div class="flex justify-between">
-          <span id="lbl-group">Grupo de Origem:</span>
-          <span id="group-title" class="font-semibold text-slate-200"></span>
-        </div>
-        <div class="flex justify-between">
-          <span id="lbl-date">Data do Ocorrido:</span>
-          <span id="spam-date" class="font-semibold text-slate-200"></span>
-        </div>
-        <div class="flex justify-between">
-          <span id="lbl-chat-id">ID do Chat:</span>
-          <span id="chat-id" class="font-mono text-slate-300"></span>
-        </div>
+      <!-- BOTÃO FECHAR -->
+      <div class="pt-2">
+        <button id="closeBtn" class="w-full py-4 bg-slate-800 hover:bg-slate-700/80 text-slate-200 hover:text-white font-semibold rounded-xl border border-slate-700/50 shadow-lg active:scale-[0.98] transition-all duration-200">
+          Fechar
+        </button>
       </div>
 
     </div>
 
   </div>
-
-  <script>
-    // Configurações do Telegram WebApp
-    const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand(); // Expande o app na tela inteira do celular
-
-    // Dicionário de Idiomas
-    const dict = {
-      pt: {
-        subtitle: "Detalhes da mensagem removida",
-        loading: "Consultando base de spams...",
-        errTitle: "Ops! Ocorreu um erro",
-        errDesc: "Não conseguimos localizar o relatório deste spam.",
-        retry: "Tentar novamente",
-        lblMessage: "Mensagem Removida",
-        lblMedia: "Mídia Anexada",
-        lblViolator: "Infrator",
-        lblReason: "Motivo do Bloqueio",
-        lblRisk: "Risco Calculado",
-        lblGroup: "Grupo de Origem",
-        lblDate: "Data do Ocorrido",
-        lblChatId: "ID do Chat",
-        riskLow: "Baixo",
-        riskMed: "Médio",
-        riskHigh: "Alto",
-        riskCrit: "Crítico"
-      },
-      en: {
-        subtitle: "Details of the removed message",
-        loading: "Searching spam database...",
-        errTitle: "Oops! An error occurred",
-        errDesc: "We could not find the report for this spam.",
-        retry: "Try again",
-        lblMessage: "Removed Message",
-        lblMedia: "Attached Media",
-        lblViolator: "Violator",
-        lblReason: "Block Reason",
-        lblRisk: "Calculated Risk",
-        lblGroup: "Origin Group",
-        lblDate: "Date Occurred",
-        lblChatId: "Chat ID",
-        riskLow: "Low",
-        riskMed: "Medium",
-        riskHigh: "High",
-        riskCrit: "Critical"
-      },
-      es: {
-        subtitle: "Detalles del mensaje eliminado",
-        loading: "Buscando en la base de spam...",
-        errTitle: "¡Ups! Ocurrió un error",
-        errDesc: "No pudimos localizar el informe de este spam.",
-        retry: "Intentar de nuevo",
-        lblMessage: "Mensaje Eliminado",
-        lblMedia: "Multimedia Adjunto",
-        lblViolator: "Infractor",
-        lblReason: "Motivo del Bloqueo",
-        lblRisk: "Riesgo Calculado",
-        lblGroup: "Grupo de Origen",
-        lblDate: "Fecha del Suceso",
-        lblChatId: "ID del Chat",
-        riskLow: "Bajo",
-        riskMed: "Medio",
-        riskHigh: "Alto",
-        riskCrit: "Crítico"
-      }
-    };
-
-    let currentLang = "pt";
-
-    // Função para alterar o idioma dinamicamente
-    function changeLang(lang) {
-      currentLang = lang;
-      
-      // Reseta classes visuais dos botões
-      ['pt', 'en', 'es'].forEach(l => {
-        const btn = document.getElementById(`btn-${l}`);
-        btn.className = "py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-slate-800/80 text-slate-400 hover:bg-slate-700/50";
-      });
-
-      // Ativa o botão selecionado
-      const activeBtn = document.getElementById(`btn-${lang}`);
-      activeBtn.className = "py-2.5 rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 bg-blue-600 text-white shadow-lg shadow-blue-600/25";
-
-      // Aplica traduções
-      document.getElementById('txt-subtitle').innerText = dict[lang].subtitle;
-      document.getElementById('txt-loading').innerText = dict[lang].loading;
-      document.getElementById('txt-error-title').innerText = dict[lang].errTitle;
-      document.getElementById('error-desc').innerText = dict[lang].errDesc;
-      document.getElementById('btn-retry').innerText = dict[lang].retry;
-      document.getElementById('lbl-message').innerText = dict[lang].lblMessage;
-      
-      const lblMedia = document.getElementById('lbl-media');
-      if (lblMedia) lblMedia.innerText = dict[lang].lblMedia;
-      
-      document.getElementById('lbl-violator').innerText = dict[lang].lblViolator;
-      document.getElementById('lbl-reason').innerText = dict[lang].lblReason;
-      document.getElementById('lbl-risk').innerText = dict[lang].lblRisk;
-      document.getElementById('lbl-group').innerText = dict[lang].lblGroup;
-      document.getElementById('lbl-date').innerText = dict[lang].lblDate;
-      document.getElementById('lbl-chat-id').innerText = dict[lang].lblChatId;
-
-      // Traduz o Badge de Risco baseado no Score atual
-      updateRiskBadge(window.currentScore || 0);
-    }
-
-    // Gerencia a barra de risco e cores
-    function updateRiskBadge(score) {
-      const badge = document.getElementById('risk-badge');
-      const bar = document.getElementById('risk-bar');
-      const percentage = Math.min(score * 10, 100);
-
-      bar.style.width = `${percentage}%`;
-
-      if (score >= 7) {
-        badge.innerText = dict[currentLang].riskCrit;
-        badge.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30";
-        bar.className = "h-full rounded-full transition-all duration-1000 bg-rose-500";
-      } else if (score >= 4) {
-        badge.innerText = dict[currentLang].riskHigh;
-        badge.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
-        bar.className = "h-full rounded-full transition-all duration-1000 bg-amber-500";
-      } else if (score >= 2) {
-        badge.innerText = dict[currentLang].riskMed;
-        badge.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30";
-        bar.className = "h-full rounded-full transition-all duration-1000 bg-blue-500";
-      } else {
-        badge.innerText = dict[currentLang].riskLow;
-        badge.className = "text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-        bar.className = "h-full rounded-full transition-all duration-1000 bg-emerald-500";
-      }
-    }
-
-    // Inicialização e busca de dados
-    async function init() {
-      // Pega o startapp do Telegram ou query parameter convencional
-      const urlParams = new URLSearchParams(window.location.search);
-      const payload = tg.initDataUnsafe?.start_param || urlParams.get('payload');
-
-      if (!payload) {
-        showError("ID do relatório ausente.");
-        return;
-      }
-
-      try {
-        const res = await fetch(`/api/get-spam?payload=${payload}`);
-        if (!res.ok) throw new Error("Erro de resposta da API.");
-        
-        const json = await res.json();
-        if (!json.ok) throw new Error(json.error || "Log não encontrado.");
-
-        renderSpam(json.data, payload);
-      } catch (err) {
-        showError(err.message);
-      }
-    }
-
-    // Renderiza os dados do Spam no DOM
-    function renderSpam(spam, payload) {
-      window.currentScore = spam.score || 0;
-
-      // Preenche os textos
-      document.getElementById('spam-text').innerText = spam.content || "Conteúdo não textual";
-      document.getElementById('user-name').innerText = spam.user.name || "Infrator";
-      document.getElementById('user-username').innerText = spam.user.username ? `@${spam.user.username}` : `ID: ${spam.user.id}`;
-      document.getElementById('spam-reason').innerText = spam.reason || "Não especificado";
-      document.getElementById('group-title').innerText = spam.group_title || "Grupo Privado";
-      document.getElementById('spam-date').innerText = spam.date || "Sem data";
-      document.getElementById('chat-id').innerText = spam.chat_id || "N/A";
-
-      // Configura o link do perfil
-      const profileBtn = document.getElementById('user-profile-btn');
-      if (spam.profile_url) {
-        profileBtn.href = spam.profile_url;
-      } else {
-        profileBtn.classList.add('hidden');
-      }
-
-      // Configura previews de Mídia (Foto / Vídeo)
-      const mediaContainer = document.getElementById('media-container');
-      const mediaImg = document.getElementById('media-image');
-      const mediaVid = document.getElementById('media-video');
-
-      if (spam.media && spam.media.photo) {
-        mediaContainer.classList.remove('hidden');
-        mediaImg.src = `/api/media?payload=${payload}&type=photo`;
-        mediaImg.classList.remove('hidden');
-      } else if (spam.media && spam.media.video) {
-        mediaContainer.classList.remove('hidden');
-        mediaVid.src = `/api/media?payload=${payload}&type=video`;
-        mediaVid.classList.remove('hidden');
-      }
-
-      // Alterna visibilidade
-      document.getElementById('loading-box').classList.add('hidden');
-      document.getElementById('content-box').classList.remove('hidden');
-
-      // Atualiza o medidor de risco com base no score
-      updateRiskBadge(window.currentScore);
-    }
-
-    function showError(msg) {
-      document.getElementById('loading-box').classList.add('hidden');
-      document.getElementById('error-box').classList.remove('hidden');
-      document.getElementById('error-desc').innerText = msg;
-    }
-
-    // Inicializa carregando os dados
-    init();
-  </script>
 </body>
 </html>
