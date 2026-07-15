@@ -63,13 +63,14 @@ module.exports = async function handler(req, res) {
 
     // ==================================================
     // ✅ CORREÇÃO CRÍTICA DO ERRO 500:
-    // Alterado de 'private' para 'public'.
+    // Alterado de 'public' para 'private' para corresponder
+    // à configuração de 'Private Store' do seu Vercel Blob.
     // ==================================================
     const blob = await put(
       pathname,
       JSON.stringify(data),
       {
-        access: "public", // ⚡ Corrigido! Obrigatório para buckets públicos da Vercel.
+        access: "private", // ⚡ Corrigido para sincronizar com seu bucket privado!
         contentType: "application/json",
         allowOverwrite: true,
         addRandomSuffix: false
@@ -77,13 +78,13 @@ module.exports = async function handler(req, res) {
       }
     );
 
-    // O blob.url retornado agora será uma URL pública estável
+    // O blob.url retornado agora será uma URL assinada temporária (tokenizada e segura)
     return json(res, 200, {
       ok: true,
       payload: payload,
       pathname: blob.pathname,
       blob: {
-        url: blob.url, // URL pública funcional
+        url: blob.url, // URL privada funcional e autorizada pela Vercel
         pathname: blob.pathname
       }
     });
